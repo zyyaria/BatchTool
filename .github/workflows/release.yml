@@ -1,0 +1,135 @@
+name: Build and Release
+
+on:
+  push:
+    branches:
+      - main
+    tags:
+      - 'v*'
+
+jobs:
+  create-tag:
+    runs-on: ubuntu-latest
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    permissions:
+      contents: write
+    outputs:
+      tag_name: ${{ steps.set_tag.outputs.tag_name || '' }}
+    steps:
+      - name: 检出代码
+        uses: actions/checkout@v6
+
+      - name: 设置 Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: '3.14'
+
+      - name: 检查版本号是否变化
+        id: check_version
+        run: |
+          CURRENT_VERSION=$(python -c "import re; print(re.search(r'^BATCH_VERSION\s*=\s*\"([^\"]+)\"', open('core/utils.py').read(), re.M).group(1))")
+          TAG_NAME="v$CURRENT_VERSION"
+          echo "当前版本: $TAG_NAME"
+          if git ls-remote --tags origin "$TAG_NAME" | grep -q "$TAG_NAME"; then
+            echo "版本号未变化，跳过构建"
+            echo "skip=true" >> $GITHUB_OUTPUT
+          else
+            echo "版本号已更新，继续构建"
+            echo "skip=false" >> $GITHUB_OUTPUT
+          fi
+
+      - name: 读取 Batch 版本号
+        if: steps.check_version.outputs.skip == 'false'
+        id: get_version
+        run: |
+          BATCH_VERSION=$(python -c "import re; print(re.search(r'^BATCH_VERSION\s*=\s*\"([^\"]+)\"', open('core/utils.py').read(), re.M).group(1))")
+          echo "BATCH_VERSION=$BATCH_VERSION" >> $GITHUB_ENV
+
+      - name: 创建并推送 Tag
+        if: steps.check_version.outputs.skip == 'false'
+        id: set_tag
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          
+          TAG_NAME="v${{ env.BATCH_VERSION }}"
+          echo "tag_name=$TAG_NAME" >> $GITHUB_OUTPUT
+          
+          if git rev-parse "$TAG_NAME" >/dev/null 2>&1; then
+            git tag -d "$TAG_NAME"
+          fi
+          git tag -a "$TAG_NAME" -F release_notes.txt
+          git push origin "$TAG_NAME"
+          echo "✅ 已创建并推送 Tag: $TAG_NAME"
+        shell: bash
+
+  build:
+    runs-on: windows-latest
+    needs: create-tag
+    if: |
+      always() &&
+      needs.create-tag.result == 'success' &&
+      needs.create-tag.outputs.tag_name != ''
+    permissions:
+      contents: write
+    steps:
+      - name: 检出代码
+        uses: actions/checkout@v6
+
+      - name: 设置 Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: '3.14'
+
+      - name: 安装依赖
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          echo "===== 验证关键库 ====="
+          python -c "import PyInstaller; print('PyInstaller OK')"
+          python -c "import PySide6; print('PySide6 OK')"
+
+      - name: 提取版本号（从 utils.py）
+        id: get_versions
+        run: |
+          $pdfver = python -c "from core.utils import PDF_VERSION; print(f'v{PDF_VERSION}')"
+          $imgver = python -c "from core.utils import IMG_VERSION; print(f'v{IMG_VERSION}')"
+          $videover = python -c "from core.utils import VIDEO_VERSION; print(f'v{VIDEO_VERSION}')"
+          echo "PDF_VERSION=$pdfver" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+          echo "IMG_VERSION=$imgver" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+          echo "VIDEO_VERSION=$videover" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+        shell: pwsh
+
+      - name: 打包 PDFTool
+        run: |
+          pyinstaller --onedir --windowed --name=PDF批量处理工具 --icon=assets/logo_pdf.ico --add-data "assets;assets" --exclude-module=tkinter --exclude-module=unittest --exclude-module=test app_pdf.py
+
+      - name: 打包 IMGTool
+        run: |
+          pyinstaller --onedir --windowed --name=图片批量处理工具 --icon=assets/logo_img.ico --add-data "assets;assets" --exclude-module=tkinter --exclude-module=unittest --exclude-module=test app_img.py
+
+      - name: 打包 VideoTool
+        run: |
+          pyinstaller --onedir --windowed --name=视频批量处理工具 --icon=assets/logo_video.ico --add-data "assets;assets" --exclude-module=tkinter --exclude-module=unittest --exclude-module=test app_video.py
+
+      - name: 清理旧 zip
+        run: |
+          if (Test-Path *.zip) { Remove-Item *.zip -Force }
+
+      - name: 生成 ZIP 压缩包（英文名 + 版本号）
+        run: |
+          python -c "import zipfile, os; zf = zipfile.ZipFile(f'PDFTool_${{ env.PDF_VERSION }}.zip', 'w', zipfile.ZIP_DEFLATED, compresslevel=9); root = 'dist/PDF批量处理工具'; [zf.write(os.path.join(dirpath, f), os.path.relpath(os.path.join(dirpath, f), root)) for dirpath, _, filenames in os.walk(root) for f in filenames]; zf.close()"
+          python -c "import zipfile, os; zf = zipfile.ZipFile(f'IMGTool_${{ env.IMG_VERSION }}.zip', 'w', zipfile.ZIP_DEFLATED, compresslevel=9); root = 'dist/图片批量处理工具'; [zf.write(os.path.join(dirpath, f), os.path.relpath(os.path.join(dirpath, f), root)) for dirpath, _, filenames in os.walk(root) for f in filenames]; zf.close()"
+          python -c "import zipfile, os; zf = zipfile.ZipFile(f'VideoTool_${{ env.VIDEO_VERSION }}.zip', 'w', zipfile.ZIP_DEFLATED, compresslevel=9); root = 'dist/视频批量处理工具'; [zf.write(os.path.join(dirpath, f), os.path.relpath(os.path.join(dirpath, f), root)) for dirpath, _, filenames in os.walk(root) for f in filenames]; zf.close()"
+        shell: pwsh
+
+      - name: 创建 Release 并上传
+        uses: softprops/action-gh-release@v3
+        with:
+          files: |
+            *.zip
+          tag_name: ${{ needs.create-tag.outputs.tag_name }}
+          name: ${{ needs.create-tag.outputs.tag_name }}
+          body_path: release_notes.txt
+          draft: false
+          prerelease: false

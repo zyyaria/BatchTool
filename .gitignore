@@ -1,0 +1,36 @@
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+*.so
+*.dylib
+
+# Virtual Environment
+venv/
+.venv/
+env/
+ENV/
+
+# PyInstaller
+dist/
+build/
+*.spec
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Project specific
+gs_config.json
+app_config.json
+*.zip
+*.log
+.DS_Store
+
+build.bat
+build_backup.bat
+开发记录.md
