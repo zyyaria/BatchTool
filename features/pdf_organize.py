@@ -5,12 +5,12 @@ import os
 import re
 from PyPDF2 import PdfReader, PdfWriter
 from PySide6.QtCore import Signal
-from PySide6.QtGui import QIntValidator
+from PySide6.QtGui import QIntValidator, QAction, QIcon
 from PySide6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QLabel, QComboBox, QLineEdit, 
     QSpinBox, QPushButton, QFileDialog, QMessageBox, QCheckBox, QSizePolicy
 )
-from core.utils import parse_page_range
+from core.utils import parse_page_range, resource_path
 
 
 class OrganizePanel(QWidget):
@@ -68,12 +68,14 @@ class OrganizePanel(QWidget):
         insert_file_row = QHBoxLayout()
         insert_file_row.addWidget(QLabel("插入文件："))
         self.insert_file_path = QLineEdit()
-        self.insert_file_path.setPlaceholderText("请选择要插入的PDF文件（整份插入）")
+        self.insert_file_path.setPlaceholderText("点击右侧图标选择PDF文件")
         self.insert_file_path.setReadOnly(True)
         insert_file_row.addWidget(self.insert_file_path, 1)
-        self.insert_file_btn = QPushButton("选择文件")
-        self.insert_file_btn.clicked.connect(self._select_insert_file)
-        insert_file_row.addWidget(self.insert_file_btn)
+        insert_action = QAction(self)
+        insert_action.setIcon(QIcon(resource_path("assets/folder.png")))
+        insert_action.setToolTip("选择要插入的PDF文件")
+        insert_action.triggered.connect(self._select_insert_file)
+        self.insert_file_path.addAction(insert_action, QLineEdit.TrailingPosition)
         insert_layout.addLayout(insert_file_row)
 
         pos_row = QHBoxLayout()
@@ -124,12 +126,14 @@ class OrganizePanel(QWidget):
         replace_file_row = QHBoxLayout()
         replace_file_row.addWidget(QLabel("替换文件："))
         self.replace_file_path = QLineEdit()
-        self.replace_file_path.setPlaceholderText("请选择来源PDF文件")
+        self.replace_file_path.setPlaceholderText("点击右侧图标选择PDF文件")
         self.replace_file_path.setReadOnly(True)
         replace_file_row.addWidget(self.replace_file_path, 1)
-        self.replace_file_btn = QPushButton("选择文件")
-        self.replace_file_btn.clicked.connect(self._select_replace_file)
-        replace_file_row.addWidget(self.replace_file_btn)
+        replace_action = QAction(self)
+        replace_action.setIcon(QIcon(resource_path("assets/folder.png")))
+        replace_action.setToolTip("选择来源PDF文件")
+        replace_action.triggered.connect(self._select_replace_file)
+        self.replace_file_path.addAction(replace_action, QLineEdit.TrailingPosition)
         replace_layout.addLayout(replace_file_row)
 
         replace_source_row = QHBoxLayout()
@@ -167,7 +171,7 @@ class OrganizePanel(QWidget):
         self.split_range_row = QWidget()
         split_range_row_layout = QHBoxLayout(self.split_range_row)
         split_range_row_layout.setContentsMargins(0, 0, 0, 0)
-        split_range_row_layout.addWidget(QLabel("页码范围："))
+        split_range_row_layout.addWidget(QLabel("页面范围："))
         self.split_range_list = QLineEdit()
         self.split_range_list.setPlaceholderText("1-3,4-6,7-9")
         split_range_row_layout.addWidget(self.split_range_list, 1)

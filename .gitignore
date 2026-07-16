@@ -30,7 +30,7 @@ app_config.json
 *.zip
 *.log
 .DS_Store
+.prettierignore
 
 build.bat
-build_backup.bat
 开发记录.md

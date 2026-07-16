@@ -22,7 +22,6 @@ class ScanPanel(QWidget):
         main_layout = QVBoxLayout(self)
         main_layout.setSpacing(8)
 
-        # ========== 预设按钮 ==========
         preset_row = QHBoxLayout()
         preset_row.addWidget(QLabel("预设："))
         self.btn_hd = QPushButton("高清扫描")
@@ -31,13 +30,11 @@ class ScanPanel(QWidget):
         self.btn_hd.clicked.connect(lambda: self._apply_preset("hd"))
         self.btn_print_color.clicked.connect(lambda: self._apply_preset("print_color"))
         self.btn_print_bw.clicked.connect(lambda: self._apply_preset("print_bw"))
-        preset_row.addWidget(self.btn_hd)
-        preset_row.addWidget(self.btn_print_color)
-        preset_row.addWidget(self.btn_print_bw)
-        preset_row.addStretch()
+        preset_row.addWidget(self.btn_hd, 1)
+        preset_row.addWidget(self.btn_print_color, 1)
+        preset_row.addWidget(self.btn_print_bw, 1)
         main_layout.addLayout(preset_row)
 
-        # ========== 基本设置 ==========
         label_basic = QLabel("基本设置：")
         label_basic.setStyleSheet("font-weight: 600; margin-top: 4px; margin-left: -3px;")
         main_layout.addWidget(label_basic)
@@ -59,7 +56,6 @@ class ScanPanel(QWidget):
         dpi_row.addWidget(self.dpi, 1)
         main_layout.addLayout(dpi_row)
 
-        # ========== 图片调节 ==========
         label_adjust = QLabel("图片调节：")
         label_adjust.setStyleSheet("font-weight: 600; margin-top: 4px; margin-left: -3px;")
         main_layout.addWidget(label_adjust)
@@ -111,14 +107,10 @@ class ScanPanel(QWidget):
 
         main_layout.addStretch()
 
-        # ========== 重置默认值 ==========
-        reset_row = QHBoxLayout()
         self.btn_reset = QPushButton("重置为默认值")
         self.btn_reset.clicked.connect(self._apply_default)
-        reset_row.addWidget(self.btn_reset, 1)
-        main_layout.addLayout(reset_row)
+        main_layout.addWidget(self.btn_reset)
 
-        # ========== 信号连接 ==========
         self.color_mode.currentTextChanged.connect(self.changed)
         self.dpi.valueChanged.connect(self.changed)
         self.brightness.valueChanged.connect(self.changed)

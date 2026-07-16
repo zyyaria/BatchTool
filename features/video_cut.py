@@ -2,11 +2,13 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
 
 import os
+import sys
 import subprocess
-from PySide6.QtCore import Signal
+from PySide6.QtCore import Signal, QTime
 from PySide6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QLabel, QSpinBox, QComboBox,
-    QPushButton, QFileDialog, QMessageBox, QCheckBox, QSizePolicy
+    QPushButton, QFileDialog, QMessageBox, QCheckBox, QSizePolicy,
+    QTimeEdit
 )
 from core.utils import get_ffmpeg_path, load_app_config, save_app_config
 
@@ -18,66 +20,28 @@ class VideoCutPanel(QWidget):
         super().__init__()
         self.ffmpeg_path = get_ffmpeg_path()
         layout = QVBoxLayout(self)
-        layout.setSpacing(4)
-        layout.setContentsMargins(0, 10, 0, 10)
+        layout.setSpacing(8)
 
-        row1 = QHBoxLayout()
-        row1.addWidget(QLabel("开始时间:"))
-        row1.addStretch()
-        layout.addLayout(row1)
+        time_row = QHBoxLayout()
+        time_row.addWidget(QLabel("截取时间:"))
 
-        row2 = QHBoxLayout()
-        row2.setSpacing(2)
-        self.start_h = QSpinBox()
-        self.start_h.setRange(0, 99)
-        self.start_h.setValue(0)
-        self.start_h.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
-        self.start_h.setMinimumWidth(40)
-        row2.addWidget(self.start_h, 1)
-        row2.addWidget(QLabel(":"))
-        self.start_m = QSpinBox()
-        self.start_m.setRange(0, 59)
-        self.start_m.setValue(0)
-        self.start_m.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
-        self.start_m.setMinimumWidth(40)
-        row2.addWidget(self.start_m, 1)
-        row2.addWidget(QLabel(":"))
-        self.start_s = QSpinBox()
-        self.start_s.setRange(0, 59)
-        self.start_s.setValue(0)
-        self.start_s.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
-        self.start_s.setMinimumWidth(40)
-        row2.addWidget(self.start_s, 1)
-        layout.addLayout(row2)
+        self.start_time = QTimeEdit()
+        self.start_time.setDisplayFormat("HH:mm:ss")
+        self.start_time.setTime(QTime(0, 0, 0))
+        self.start_time.setMinimumWidth(80)
+        self.start_time.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
+        time_row.addWidget(self.start_time, 1)
 
-        row3 = QHBoxLayout()
-        row3.addWidget(QLabel("结束时间:"))
-        row3.addStretch()
-        layout.addLayout(row3)
+        time_row.addWidget(QLabel(" 至 "))
 
-        row4 = QHBoxLayout()
-        row4.setSpacing(2)
-        self.end_h = QSpinBox()
-        self.end_h.setRange(0, 99)
-        self.end_h.setValue(0)
-        self.end_h.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
-        self.end_h.setMinimumWidth(40)
-        row4.addWidget(self.end_h, 1)
-        row4.addWidget(QLabel(":"))
-        self.end_m = QSpinBox()
-        self.end_m.setRange(0, 59)
-        self.end_m.setValue(0)
-        self.end_m.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
-        self.end_m.setMinimumWidth(40)
-        row4.addWidget(self.end_m, 1)
-        row4.addWidget(QLabel(":"))
-        self.end_s = QSpinBox()
-        self.end_s.setRange(0, 59)
-        self.end_s.setValue(0)
-        self.end_s.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
-        self.end_s.setMinimumWidth(40)
-        row4.addWidget(self.end_s, 1)
-        layout.addLayout(row4)
+        self.end_time = QTimeEdit()
+        self.end_time.setDisplayFormat("HH:mm:ss")
+        self.end_time.setTime(QTime(0, 0, 0))
+        self.end_time.setMinimumWidth(80)
+        self.end_time.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
+        time_row.addWidget(self.end_time, 1)
+
+        layout.addLayout(time_row)
 
         fmt_row = QHBoxLayout()
         fmt_row.addWidget(QLabel("输出格式:"))
@@ -95,6 +59,7 @@ class VideoCutPanel(QWidget):
         self.ffmpeg_path_label.setStyleSheet("color: #555;")
         if self.ffmpeg_path:
             self.ffmpeg_path_label.setToolTip(self.ffmpeg_path)
+        self.ffmpeg_path_label.setMinimumWidth(200)
         ffmpeg_row.addWidget(self.ffmpeg_path_label, 1)
         layout.addLayout(ffmpeg_row)
 
@@ -104,12 +69,8 @@ class VideoCutPanel(QWidget):
 
         layout.addStretch()
 
-        self.start_h.valueChanged.connect(self.changed)
-        self.start_m.valueChanged.connect(self.changed)
-        self.start_s.valueChanged.connect(self.changed)
-        self.end_h.valueChanged.connect(self.changed)
-        self.end_m.valueChanged.connect(self.changed)
-        self.end_s.valueChanged.connect(self.changed)
+        self.start_time.timeChanged.connect(self.changed)
+        self.end_time.timeChanged.connect(self.changed)
         self.out_format.currentIndexChanged.connect(self.changed)
         self.reencode_check.stateChanged.connect(self.changed)
 
@@ -135,13 +96,15 @@ def build_panel() -> QWidget:
 
 
 def collect_settings(panel: VideoCutPanel) -> dict:
+    start = panel.start_time.time()
+    end = panel.end_time.time()
     return {
-        "start_h": panel.start_h.value(),
-        "start_m": panel.start_m.value(),
-        "start_s": panel.start_s.value(),
-        "end_h": panel.end_h.value(),
-        "end_m": panel.end_m.value(),
-        "end_s": panel.end_s.value(),
+        "start_h": start.hour(),
+        "start_m": start.minute(),
+        "start_s": start.second(),
+        "end_h": end.hour(),
+        "end_m": end.minute(),
+        "end_s": end.second(),
         "out_format": panel.out_format.currentText(),
         "reencode": panel.reencode_check.isChecked(),
     }
@@ -173,6 +136,9 @@ def _to_seconds(h, m, s):
     return h * 3600 + m * 60 + s
 
 
+import subprocess
+import sys  # 如果顶部没有导入，补上
+
 def 截取视频(input_path, output_path, start_sec, duration_sec, reencode=False):
     ffmpeg = get_ffmpeg_path()
     if not ffmpeg:
@@ -187,7 +153,14 @@ def 截取视频(input_path, output_path, start_sec, duration_sec, reencode=Fals
         cmd.extend(["-c:v", "libx264", "-preset", "fast", "-c:a", "aac", "-b:a", "128k"])
     cmd.extend(["-y", output_path])
 
-    subprocess.run(cmd, check=True, capture_output=True, text=True, encoding='utf-8')
+    subprocess.run(
+        cmd,
+        check=True,
+        capture_output=True,
+        text=True,
+        encoding='utf-8',
+        creationflags=subprocess.CREATE_NO_WINDOW if sys.platform == "win32" else 0
+    )
 
 
 def run_task(file_item, settings):

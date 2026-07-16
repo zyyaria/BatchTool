@@ -71,33 +71,33 @@ class ConvertPanel(QWidget):
         self.target = QComboBox()
         self._refresh_targets_for_mode(0)
         target_row.addWidget(self.target, 1)
-        v.addLayout(target_row)
 
-        self.dpi_widget = QWidget()
-        dpi_row = QHBoxLayout(self.dpi_widget)
-        dpi_row.setContentsMargins(0, 0, 0, 0)
-        dpi_row.addWidget(QLabel("图片DPI："))
+        self.dpi_label = QLabel("图片DPI：")
         self.dpi = QSpinBox()
         self.dpi.setRange(72, 600)
         self.dpi.setValue(72)
-        dpi_row.addWidget(self.dpi, 1)
-        v.addWidget(self.dpi_widget)
+        self.dpi.setFixedWidth(70)
+        target_row.addWidget(self.dpi_label)
+        target_row.addWidget(self.dpi)
+
+        self.xlsx_merge = QCheckBox("合并所有表")
+        target_row.addWidget(self.xlsx_merge)
+
+        v.addLayout(target_row)
 
         self.page_widget = QWidget()
         page_row = QHBoxLayout(self.page_widget)
         page_row.setContentsMargins(0, 0, 0, 0)
-        page_row.addWidget(QLabel("页码范围（如 1-3,5,8-）："))
+        page_row.addWidget(QLabel("页码范围："))
         self.page_range = QLineEdit()
-        self.page_range.setPlaceholderText("留空=全部页")
+        self.page_range.setPlaceholderText("1-3,5,8-（留空=全部）")
         page_row.addWidget(self.page_range, 1)
         v.addWidget(self.page_widget)
 
-        self.xlsx_merge = QCheckBox("Excel：合并所有表到一个Sheet")
-        v.addWidget(self.xlsx_merge)
-
         v.addStretch()
 
-        self.dpi_widget.setVisible(False)
+        self.dpi_label.setVisible(False)
+        self.dpi.setVisible(False)
         self.page_widget.setVisible(False)
         self.xlsx_merge.setVisible(False)
 
@@ -109,6 +109,7 @@ class ConvertPanel(QWidget):
         self.page_range.textChanged.connect(self.changed)
         self.xlsx_merge.stateChanged.connect(self.changed)
 
+
     def _refresh_targets_for_mode(self, mode_idx: int):
         self.target.clear()
         if mode_idx == 0:
@@ -116,23 +117,27 @@ class ConvertPanel(QWidget):
         elif mode_idx == 1:
             self.target.addItems(["DOCX", "XLSX", "PPTX", "JPG", "PNG", "TXT", "HTML"])
         else:
-            self.target.addItems(["docx", "doc", "xlsx", "xls", "pptx", "ppt"])
+            self.target.addItems(["DOCX", "DOC", "XLSX", "XLS", "PPTX", "PPT"])
+
 
     def _on_mode_changed(self, idx: int):
         self._refresh_targets_for_mode(idx)
         self._refresh_visibility()
         self.changed.emit()
 
+
     def _refresh_visibility(self):
         mode = self.mode.currentIndex()
         tgt = self.target.currentText().lower()
 
         is_from_pdf = (mode == 1)
-        is_office_convert = (mode == 2)
+        is_jpg_png = is_from_pdf and tgt in ("jpg", "png")
+        is_xlsx = is_from_pdf and tgt == "xlsx"
 
-        self.dpi_widget.setVisible(is_from_pdf and tgt in ("jpg", "png"))
+        self.dpi_label.setVisible(is_jpg_png)
+        self.dpi.setVisible(is_jpg_png)
         self.page_widget.setVisible(is_from_pdf)
-        self.xlsx_merge.setVisible(is_from_pdf and tgt == "xlsx")
+        self.xlsx_merge.setVisible(is_xlsx)
 
 def build_panel() -> QWidget:
     return ConvertPanel()

@@ -10,14 +10,14 @@ import subprocess
 from typing import List, Callable
 from dataclasses import dataclass, field
 from PySide6.QtCore import Qt, QThread, QObject, Signal
-from PySide6.QtGui import QIcon, QFont, QColor, QShortcut, QKeySequence
+from PySide6.QtGui import QIcon, QFont, QColor, QShortcut, QKeySequence, QAction
 from PySide6.QtWidgets import (
     QMainWindow, QWidget, QVBoxLayout, QHBoxLayout, QPushButton, QTableWidget,
     QTableWidgetItem, QFileDialog, QLabel, QProgressBar, QTextEdit, QComboBox,
     QLineEdit, QHeaderView, QMessageBox, QGroupBox, QInputDialog, QAbstractItemView,
     QSplitter, QScrollArea, QDialog, QCheckBox, QTextBrowser, QDialogButtonBox,
     QSpinBox, QListWidget, QMenu, QFrame, QStackedWidget, QButtonGroup,
-    QGridLayout, QRadioButton
+    QGridLayout, QRadioButton, QStyle
 )
 from .utils import resource_path, sanitize_base_name, parse_page_range, NamingRules
 from .help import GENERAL_HELP_TEXT, get_about_text
@@ -380,39 +380,36 @@ class UIMixin:
         grp_name = QGroupBox("命名设置")
         v = QVBoxLayout(grp_name)
 
-        name_row = QHBoxLayout()
         self.naming_rule_display = QLineEdit()
-        self.naming_rule_display.setPlaceholderText("保留原名（点击编辑按钮设置规则）")
+        self.naming_rule_display.setPlaceholderText("当前保留原名（点击右侧图标编辑规则）")
         self.naming_rule_display.setStyleSheet("background-color: #f5f5f5; color: #333;")
         self.naming_rule_display.setClearButtonEnabled(True)
-        name_row.addWidget(self.naming_rule_display, 1)
 
-        self.btn_naming_rules = QPushButton("编辑")
-        self.btn_naming_rules.setFixedSize(60, 24)
-        self.btn_naming_rules.setStyleSheet("font-size: 11px; padding: 2px 4px;")
-        self.btn_naming_rules.clicked.connect(self._show_naming_editor)
-        name_row.addWidget(self.btn_naming_rules, 0, Qt.AlignVCenter)
+        edit_action = QAction(self)
+        edit_action.setIcon(QIcon(resource_path("assets/edit.png")))
+        edit_action.setToolTip("编辑命名规则")
+        edit_action.triggered.connect(self._show_naming_editor)
+        self.naming_rule_display.addAction(edit_action, QLineEdit.TrailingPosition)
 
-        v.addLayout(name_row)
+        v.addWidget(self.naming_rule_display)
         root.addWidget(grp_name)
 
         grp_out = QGroupBox("输出位置")
         v = QVBoxLayout(grp_out)
 
-        path_row = QHBoxLayout()
         self.output_dir = QLineEdit()
-        self.output_dir.setPlaceholderText("原位置（点击浏览选择自定义文件夹）")
+        self.output_dir.setPlaceholderText("当前原位置（点击右侧图标选择文件夹）")
         self.output_dir.setStyleSheet("background-color: #f5f5f5; color: #333;")
         self.output_dir.setClearButtonEnabled(True)
-        path_row.addWidget(self.output_dir, 1)
+        self.output_dir.textChanged.connect(self.recompute_outputs)
 
-        self.btn_browse = QPushButton("浏览")
-        self.btn_browse.setFixedSize(60, 24)
-        self.btn_browse.setStyleSheet("font-size: 11px; padding: 2px 4px;")
-        self.btn_browse.clicked.connect(self.choose_output_dir)
-        path_row.addWidget(self.btn_browse, 0, Qt.AlignVCenter)
+        browse_action = QAction(self)
+        browse_action.setIcon(QIcon(resource_path("assets/folder.png")))
+        browse_action.setToolTip("选择输出目录")
+        browse_action.triggered.connect(self.choose_output_dir)
+        self.output_dir.addAction(browse_action, QLineEdit.TrailingPosition)
 
-        v.addLayout(path_row)
+        v.addWidget(self.output_dir)
         root.addWidget(grp_out)
 
         root.addStretch()

@@ -31,6 +31,11 @@ class ConvertPanel(QWidget):
         self.format_combo.addItems(["PNG", "JPG", "WEBP", "BMP", "TIFF", "GIF", "ICO"])
         self.format_combo.currentIndexChanged.connect(self._on_format_changed)
         fmt_row.addWidget(self.format_combo, 1)
+
+        self.bg_check = QCheckBox("填充白色背景")
+        self.bg_check.setChecked(True)
+        fmt_row.addWidget(self.bg_check)
+
         layout.addLayout(fmt_row)
 
         quality_row = QHBoxLayout()
@@ -41,10 +46,6 @@ class ConvertPanel(QWidget):
         self.quality_spin.setValue(100)
         quality_row.addWidget(self.quality_spin, 1)
         layout.addLayout(quality_row)
-
-        self.bg_check = QCheckBox("填充白色背景（避免透明变黑）")
-        self.bg_check.setChecked(True)
-        layout.addWidget(self.bg_check)
 
         layout.addStretch()
 

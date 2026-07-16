@@ -26,16 +26,35 @@ class PDFMainWindow(BaseMainWindow):
 
     def _connect_extra_signals(self, feat, panel):
         super()._connect_extra_signals(feat, panel)
+        
         if feat["name"] == "调整PDF尺寸":
             if hasattr(panel, "detect_requested"):
+                try:
+                    panel.detect_requested.disconnect(self._on_detect_size_requested)
+                except RuntimeError:
+                    pass
                 panel.detect_requested.connect(self._on_detect_size_requested)
+                
         if feat["name"] == "PDF添加书签":
             if hasattr(panel, "detect_bookmark_signal"):
+                try:
+                    panel.detect_bookmark_signal.disconnect(self._detect_pages_and_bookmarks)
+                except RuntimeError:
+                    pass
                 panel.detect_bookmark_signal.connect(self._detect_pages_and_bookmarks)
             if hasattr(panel, "clear_bookmark_signal"):
+                try:
+                    panel.clear_bookmark_signal.disconnect(self._clear_bookmarks)
+                except RuntimeError:
+                    pass
                 panel.clear_bookmark_signal.connect(self._clear_bookmarks)
+                
         if feat["name"] == "组织PDF页面":
             if hasattr(panel, "detect_page_signal"):
+                try:
+                    panel.detect_page_signal.disconnect(self._detect_pages)
+                except RuntimeError:
+                    pass
                 panel.detect_page_signal.connect(self._detect_pages)
 
     def _on_detect_size_requested(self):

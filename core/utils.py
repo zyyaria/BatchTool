@@ -7,10 +7,10 @@ import json
 from typing import List
 
 
-PDF_VERSION = "1.7.0"
-IMG_VERSION = "1.6.0"
-VIDEO_VERSION = "1.3.0"
-BATCH_VERSION = "1.3.0"
+PDF_VERSION = "1.7.1"
+IMG_VERSION = "1.6.1"
+VIDEO_VERSION = "1.3.1"
+BATCH_VERSION = "1.3.1"
 
 
 def resource_path(relative_path):

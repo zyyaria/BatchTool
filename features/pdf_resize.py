@@ -70,7 +70,7 @@ class ResizePanel(QWidget):
         main_layout.addLayout(pos_row)
 
         self.btn_detect = QPushButton("检测页面尺寸")
-        self.btn_detect.setMinimumHeight(32)
+        self.btn_detect.clicked.connect(self.detect_requested.emit)
         main_layout.addWidget(self.btn_detect)
 
         main_layout.addStretch()
@@ -80,7 +80,6 @@ class ResizePanel(QWidget):
         self.smart_orientation.stateChanged.connect(self.changed)
         self.width_mm.textChanged.connect(self.changed)
         self.height_mm.textChanged.connect(self.changed)
-        self.btn_detect.clicked.connect(self.detect_requested.emit)
 
     def _toggle_custom_size(self):
         text = self.size_combo.currentText()

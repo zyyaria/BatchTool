@@ -2,6 +2,7 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
 
 import os
+import sys
 import shutil
 import subprocess
 from PySide6.QtCore import Signal
@@ -18,8 +19,8 @@ class VideoMergePanel(QWidget):
     def __init__(self):
         super().__init__()
         self.ffmpeg_path = get_ffmpeg_path()
-        v = QVBoxLayout(self)
-        v.setSpacing(8)
+        layout = QVBoxLayout(self)
+        layout.setSpacing(8)
 
         group_row = QHBoxLayout()
         group_row.addWidget(QLabel("分组方式:"))
@@ -42,14 +43,14 @@ class VideoMergePanel(QWidget):
         self.group_spin.setVisible(False)
         group_row.addWidget(self.group_spin)
 
-        v.addLayout(group_row)
+        layout.addLayout(group_row)
 
         fmt_row = QHBoxLayout()
         fmt_row.addWidget(QLabel("输出格式:"))
         self.out_format = QComboBox()
         self.out_format.addItems(["mp4", "mkv", "avi", "mov"])
         fmt_row.addWidget(self.out_format, 1)
-        v.addLayout(fmt_row)
+        layout.addLayout(fmt_row)
 
         codec_row = QHBoxLayout()
         codec_row.addWidget(QLabel("编码方式:"))
@@ -57,7 +58,7 @@ class VideoMergePanel(QWidget):
         self.codec_mode.addItems(["直接合并（快速）", "重新编码（兼容）"])
         self.codec_mode.currentIndexChanged.connect(self._on_codec_mode_changed)
         codec_row.addWidget(self.codec_mode, 1)
-        v.addLayout(codec_row)
+        layout.addLayout(codec_row)
 
         self.encoder_widget = QWidget()
         encoder_row = QHBoxLayout(self.encoder_widget)
@@ -71,7 +72,7 @@ class VideoMergePanel(QWidget):
             "hevc_nvenc（显卡加速）"
         ])
         encoder_row.addWidget(self.video_codec, 1)
-        v.addWidget(self.encoder_widget)
+        layout.addWidget(self.encoder_widget)
 
         self.preset_widget = QWidget()
         preset_row = QHBoxLayout(self.preset_widget)
@@ -80,7 +81,7 @@ class VideoMergePanel(QWidget):
         self.preset_combo = QComboBox()
         self.preset_combo.addItems(["快速", "平衡", "高质量"])
         preset_row.addWidget(self.preset_combo, 1)
-        v.addWidget(self.preset_widget)
+        layout.addWidget(self.preset_widget)
 
         ffmpeg_row = QHBoxLayout()
         ffmpeg_row.addWidget(QLabel("FFmpeg 路径:"))
@@ -91,13 +92,13 @@ class VideoMergePanel(QWidget):
             self.ffmpeg_path_label.setToolTip(self.ffmpeg_path)
         self.ffmpeg_path_label.setMinimumWidth(200)
         ffmpeg_row.addWidget(self.ffmpeg_path_label, 1)
-        v.addLayout(ffmpeg_row)
+        layout.addLayout(ffmpeg_row)
 
         self.ffmpeg_btn = QPushButton("手动指定 FFmpeg 路径")
         self.ffmpeg_btn.clicked.connect(self.select_ffmpeg_path)
-        v.addWidget(self.ffmpeg_btn)
+        layout.addWidget(self.ffmpeg_btn)
 
-        v.addStretch()
+        layout.addStretch()
 
         self.group_mode.currentIndexChanged.connect(self.changed)
         self.prefix_spin.valueChanged.connect(self.changed)
@@ -218,7 +219,13 @@ def merge_videos(video_paths: list, output_path: str, settings: dict):
                 output_path
             ]
 
-        subprocess.run(cmd, check=True, capture_output=True, text=True)
+        subprocess.run(
+            cmd,
+            check=True,
+            capture_output=True,
+            text=True,
+            creationflags=subprocess.CREATE_NO_WINDOW if sys.platform == "win32" else 0
+        )
 
     finally:
         if os.path.exists(list_path):
