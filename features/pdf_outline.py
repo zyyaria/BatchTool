@@ -6,7 +6,7 @@ import fitz
 from PyPDF2 import PdfReader, PdfWriter
 from PySide6.QtCore import Signal
 from PySide6.QtWidgets import (
-    QWidget, QVBoxLayout, QHBoxLayout, QLabel, QPlainTextEdit, QSpinBox, 
+    QWidget, QVBoxLayout, QHBoxLayout, QLabel, QPlainTextEdit, QSpinBox,
     QCheckBox, QPushButton, QFileDialog, QMessageBox, QComboBox, QSizePolicy
 )
 
@@ -17,124 +17,117 @@ class OutlinePanel(QWidget):
     clear_bookmark_signal = Signal()
 
     def __init__(self):
+        """初始化设置面板"""
         super().__init__()
         layout = QVBoxLayout(self)
-        layout.setSpacing(6)
-        layout.setContentsMargins(0, 0, 0, 0)
+        layout.setSpacing(8)
 
-        output_row = QHBoxLayout()
-        output_row.addWidget(QLabel("操作模式："))
-        self.output_mode = QComboBox()
-        self.output_mode.addItems(["插入书签", "生成目录（基于已有书签）", "插入书签 + 生成目录"])
-        self.output_mode.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
-        output_row.addWidget(self.output_mode)
-        layout.addLayout(output_row)
-
+        self.action_combo = QComboBox()
+        self.action_combo.addItems(["插入书签", "生成目录（基于已有书签）", "插入书签 + 生成目录"])
+        self.action_combo.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
         self.scope_widget = QWidget()
-        scope_layout = QHBoxLayout(self.scope_widget)
-        scope_layout.setContentsMargins(0, 0, 0, 0)
-        scope_layout.addWidget(QLabel("编号范围："))
-        self.number_scope = QComboBox()
-        self.number_scope.addItems(["无编号", "仅一级标题", "多级标题"])
-        self.number_scope.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
-        scope_layout.addWidget(self.number_scope)
-        self.scope_widget.setVisible(False)
-        layout.addWidget(self.scope_widget)
-
-        self.style_widget = QWidget()
-        self.style_widget.setVisible(False)
-        style_layout = QHBoxLayout(self.style_widget)
-        style_layout.setContentsMargins(0, 0, 0, 0)
-        style_layout.addWidget(QLabel("编号样式："))
-        self.number_style = QComboBox()
-        self.number_style.addItems(["1 / 1.1 / 1.1.1", "一 / （一）/ 1.", "第一章 / 第一节 / 第一条"])
-        self.number_style.setVisible(False)
-        self.number_style.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
-        style_layout.addWidget(self.number_style)
-        layout.addWidget(self.style_widget)
-
-        def update_visibility():
-            is_toc_mode = self.output_mode.currentIndex() != 0
-            self.scope_widget.setVisible(is_toc_mode)
-            if is_toc_mode:
-                is_numbered = self.number_scope.currentIndex() != 0
-                self.style_widget.setVisible(is_numbered)
-                self.number_style.setVisible(is_numbered)
-            else:
-                self.style_widget.setVisible(False)
-                self.number_style.setVisible(False)
-
-        self.output_mode.currentIndexChanged.connect(update_visibility)
-        self.number_scope.currentIndexChanged.connect(update_visibility)
-
-        row = QHBoxLayout()
-        row.setSpacing(8)
-
-        left_widget = QWidget()
-        left_layout = QHBoxLayout(left_widget)
-        left_layout.setContentsMargins(0, 0, 0, 0)
-        left_layout.setSpacing(0)
-        left_layout.addWidget(QLabel("页码偏移量："))
+        self.scope_combo = QComboBox()
+        self.scope_combo.addItems(["无编号", "仅一级标题", "多级标题"])
+        self.scope_combo.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
+        self.number_widget = QWidget()
+        self.number_combo = QComboBox()
+        self.number_combo.addItems(["1 / 1.1 / 1.1.1", "一 / （一）/ 1.", "第一章 / 第一节 / 第一条"])
+        self.number_combo.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
         self.offset_spin = QSpinBox()
         self.offset_spin.setRange(-99, 99)
         self.offset_spin.setValue(0)
-        self.offset_spin.setFixedWidth(120)
         self.offset_spin.setToolTip("当正文从第 N 页开始时，填入 N-1")
-        left_layout.addWidget(self.offset_spin)
-
-        row.addWidget(left_widget)
-        row.addStretch() 
+        self.offset_spin.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
         self.overwrite_check = QCheckBox("覆盖已有书签")
-        self.overwrite_check.setChecked(True)
-        row.addWidget(self.overwrite_check) 
+        self.overwrite_check.setChecked(True)        
+        self.overwrite_check.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Fixed)
 
-        layout.addLayout(row)
+        row_param1 = QHBoxLayout()
+        row_param1.addWidget(QLabel("操作模式:"))
+        row_param1.addWidget(self.action_combo, 1)
+        row_param2 = QHBoxLayout(self.scope_widget)
+        row_param2.setContentsMargins(0, 0, 0, 0)
+        row_param2.addWidget(QLabel("编号范围:"))
+        row_param2.addWidget(self.scope_combo, 1)   
+        row_param3 = QHBoxLayout(self.number_widget)
+        row_param3.setContentsMargins(0, 0, 0, 0)
+        row_param3.addWidget(QLabel("编号样式:"))
+        row_param3.addWidget(self.number_combo, 1)
+        row_param4 = QHBoxLayout()
+        row_param4.setSpacing(8)
+        row_param4.addWidget(QLabel("页码偏移量:"))
+        row_param4.addWidget(self.offset_spin, 1)
+        row_param4.addWidget(self.overwrite_check)
+        layout.addLayout(row_param1)
+        layout.addWidget(self.scope_widget)
+        layout.addWidget(self.number_widget)
+        layout.addLayout(row_param4)
 
-        title_row = QHBoxLayout()
-        lbl_bookmarks = QLabel("全局书签列表")
-        lbl_bookmarks.setStyleSheet("font-weight: 600; margin-top: 4px;")
-        title_row.addWidget(lbl_bookmarks)
-        title_row.addStretch()
-        self.btn_import = QPushButton("从文本文件导入")
-        self.btn_import.setStyleSheet("font-size: 11px; padding: 4px 12px; min-height: 24px;")
-        self.btn_import.clicked.connect(self.import_from_file)
-        title_row.addWidget(self.btn_import)
-        layout.addLayout(title_row)
-
+        bookmark_label = QLabel("全局书签列表")
+        bookmark_label.setStyleSheet("font-weight: 600; margin-top: 4px; margin-left: -3px")
+        bookmark_label.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Fixed)
+        self.import_btn = QPushButton("从文本文件导入")
+        self.import_btn.setStyleSheet("font-size: 11px; padding: 4px 12px; min-height: 24px;")
+        self.import_btn.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Fixed)
         self.text_edit = QPlainTextEdit()
         self.text_edit.setPlaceholderText(
             "用 Tab 或空格分隔（层级 标题 页码）\n\n"
-            "示例：\n\n"
+            "示例：\n"
             "1   第一章   1\n"
             "2   1.1节    3\n"
             "3   1.1.1节  5\n\n"
         )
-        self.text_edit.setFixedHeight(140)
-        layout.addWidget(self.text_edit)
+        self.text_edit.setFixedHeight(130)
+        self.text_edit.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
 
-        btn_row = QHBoxLayout()
-        self.btn_detect = QPushButton("检测页码与书签")
-        self.btn_detect.clicked.connect(self.detect_bookmark_signal.emit)
-        btn_row.addWidget(self.btn_detect, 1)
+        row_bookmark = QHBoxLayout()
+        row_bookmark.addWidget(bookmark_label)
+        row_bookmark.addStretch()
+        row_bookmark.addWidget(self.import_btn)
+        layout.addLayout(row_bookmark)
+        layout.addWidget(self.text_edit, 1)
 
-        self.btn_clear = QPushButton("清除书签")
-        self.btn_clear.setStyleSheet("background-color: #f44336; color: white;")
-        self.btn_clear.clicked.connect(self.clear_bookmark_signal.emit)
-        btn_row.addWidget(self.btn_clear, 1)
+        self.detect_btn = QPushButton("检测页码与书签")
+        self.detect_btn.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
+        self.clear_btn = QPushButton("清除书签")
+        self.clear_btn.setStyleSheet("background-color: #f44336; color: white;")
+        self.clear_btn.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
+        
+        row_btn = QHBoxLayout()
+        row_btn.addWidget(self.detect_btn, 1)
+        row_btn.addWidget(self.clear_btn, 1)
+        layout.addLayout(row_btn)
 
-        layout.addLayout(btn_row)
         layout.addStretch()
 
+        self.action_combo.currentIndexChanged.connect(self._update_visibility)
+        self.action_combo.currentIndexChanged.connect(self.changed)
+        self.scope_combo.currentIndexChanged.connect(self._update_visibility)
+        self.scope_combo.currentIndexChanged.connect(self.changed)
+        self.number_combo.currentIndexChanged.connect(self.changed)
         self.text_edit.textChanged.connect(self.changed)
         self.offset_spin.valueChanged.connect(self.changed)
         self.overwrite_check.stateChanged.connect(self.changed)
-        self.output_mode.currentIndexChanged.connect(self.changed)
-        self.number_scope.currentIndexChanged.connect(self.changed)
-        self.number_style.currentIndexChanged.connect(self.changed)
+        self.import_btn.clicked.connect(self.import_from_file)
+        self.detect_btn.clicked.connect(self.detect_bookmark_signal.emit)
+        self.clear_btn.clicked.connect(self.clear_bookmark_signal.emit)
 
-        update_visibility()
+        self._update_visibility()
+        
+    def _update_visibility(self):
+        """根据操作模式更新编号范围/样式控件可见性"""
+        is_toc_mode = self.action_combo.currentIndex() != 0
+        self.scope_widget.setVisible(is_toc_mode)
+        if is_toc_mode:
+            is_numbered = self.scope_combo.currentIndex() != 0
+            self.number_widget.setVisible(is_numbered)
+            self.number_combo.setVisible(is_numbered)
+        else:
+            self.number_widget.setVisible(False)
+            self.number_combo.setVisible(False)
 
     def import_from_file(self):
+        """从文本文件导入书签数据"""
         path, _ = QFileDialog.getOpenFileName(self, "选择书签数据文件", "", "文本文件 (*.txt);;CSV文件 (*.csv);;所有文件 (*.*)")
         if path:
             try:
@@ -146,52 +139,52 @@ class OutlinePanel(QWidget):
 
 
 def build_panel() -> QWidget:
+    """构建面板实例"""
     return OutlinePanel()
 
 
 def collect_settings(panel: OutlinePanel) -> dict:
+    """收集面板设置"""
     return {
         "text": panel.text_edit.toPlainText(),
         "offset": panel.offset_spin.value(),
         "overwrite": panel.overwrite_check.isChecked(),
-        "output_mode": panel.output_mode.currentIndex(),
-        "number_scope": panel.number_scope.currentIndex(),
-        "number_style": panel.number_style.currentIndex(),
+        "action_combo": panel.action_combo.currentIndex(),
+        "scope_combo": panel.scope_combo.currentIndex(),
+        "number_combo": panel.number_combo.currentIndex(),
     }
 
 
 def prepare_preview(items, settings):
+    """生成预览信息"""
     offset = settings.get("offset", 0)
-    output_mode = settings.get("output_mode", 0)
-    scope_idx = settings.get("number_scope", 0)
-    style_idx = settings.get("number_style", 0)
+    action_combo = settings.get("action_combo", 0)
+    scope_idx = settings.get("scope_combo", 0)
+    style_idx = settings.get("number_combo", 0)
 
+    mode_names = ["插入书签", "生成目录（基于已有书签）", "插入书签 + 生成目录"]
     scope_names = ["无编号", "仅一级", "多级"]
     style_names = ["1/1.1/1.1.1", "一/（一）/1.", "第一章/第一节/第一条"]
-    mode_names = ["插入书签", "生成目录（基于已有书签）", "插入书签 + 生成目录"]
 
-    if scope_idx == 0:
-        number_text = "无编号"
-    else:
-        number_text = f"{scope_names[scope_idx]} / {style_names[scope_idx]}"
+    number_text = "无编号" if scope_idx == 0 else f"{scope_names[scope_idx]} / {style_names[style_idx]}"
 
     global_text = settings.get("text", "").strip()
-
     for it in items:
         custom_text = getattr(it, "custom_outlines", "")
         text_to_use = custom_text if custom_text.strip() else global_text
-
         count = 0
         if text_to_use:
             for line in text_to_use.splitlines():
                 line = line.strip()
                 if line and not line.startswith("#"):
                     count += 1
-
-        it.preview_extra = {"A": f"书签: {count} 条，偏移: {offset}，模式: {mode_names[output_mode]}，编号: {number_text}"}
+        it.preview_extra = {
+            "A": f"书签：{count}条，偏移{offset}，模式{mode_names[action_combo]}，编号{number_text}"
+        }
 
 
 def parse_outlines(text: str, offset: int = 0) -> list:
+    """解析用户输入的书签文本"""
     outlines = []
     for line in text.splitlines():
         line = line.strip()
@@ -216,6 +209,7 @@ def parse_outlines(text: str, offset: int = 0) -> list:
 
 
 def extract_outlines_from_pdf(pdf_path: str, offset: int = 0) -> list:
+    """从 PDF 中提取现有书签"""
     doc = fitz.open(pdf_path)
     toc = doc.get_toc()
     doc.close()
@@ -229,6 +223,7 @@ def extract_outlines_from_pdf(pdf_path: str, offset: int = 0) -> list:
 
 
 def number_to_chinese(num):
+    """将数字转换为中文数字"""
     chinese_nums = ["零", "一", "二", "三", "四", "五", "六", "七", "八", "九", "十"]
     if num <= 10:
         return chinese_nums[num]
@@ -240,6 +235,7 @@ def number_to_chinese(num):
 
 
 def get_number_string(level, counters, scope_idx, style_idx):
+    """根据编号范围、样式和计数器生成编号字符串"""
     if scope_idx == 0:
         return ""
 
@@ -360,6 +356,7 @@ def get_number_string(level, counters, scope_idx, style_idx):
 
 
 def generate_toc_pdf(outlines, output_path, scope_idx=0, style_idx=0):
+    """生成目录 PDF"""
     from reportlab.pdfgen import canvas
     from reportlab.lib.pagesizes import A4
     from reportlab.lib.units import cm
@@ -439,41 +436,39 @@ def generate_toc_pdf(outlines, output_path, scope_idx=0, style_idx=0):
 
 
 def insert_toc_to_pdf(original_pdf, toc_pdf, output_pdf):
+    """将目录 PDF 插入到原 PDF 前面，并调整书签页码偏移"""
     doc_toc = fitz.open(toc_pdf)
     doc_orig = fitz.open(original_pdf)
-    
+
     toc = doc_orig.get_toc()
     toc_pages = doc_toc.page_count
-    
+
     doc_toc.insert_pdf(doc_orig)
-    
+
     if toc:
         adjusted_toc = []
         for level, title, page in toc:
             adjusted_toc.append((level, title, page + toc_pages))
         doc_toc.set_toc(adjusted_toc)
-    
+
     doc_toc.save(output_pdf)
     doc_toc.close()
     doc_orig.close()
 
 
 def run_task(file_item, settings: dict):
+    """执行单个 PDF 书签操作"""
     src = file_item.input_path
     out_dir = file_item.output_dir or os.path.dirname(src)
     os.makedirs(out_dir, exist_ok=True)
-
-    base_name = os.path.splitext(file_item.output_name)[0] if file_item.output_name else os.path.splitext(os.path.basename(src))[0]
-    out_name = base_name + ".pdf"
-    out_path = os.path.join(out_dir, out_name)
-    file_item.output_name = out_name
+    out_path = os.path.join(out_dir, file_item.output_name)
 
     offset = settings.get("offset", 0)
-    output_mode = settings.get("output_mode", 0)
-    scope_idx = settings.get("number_scope", 0)
-    style_idx = settings.get("number_style", 0)
+    action_combo = settings.get("action_combo", 0)
+    scope_idx = settings.get("scope_combo", 0)
+    style_idx = settings.get("number_combo", 0)
 
-    if output_mode == 0:
+    if action_combo == 0:
         text = getattr(file_item, "custom_outlines", "") if getattr(file_item, "custom_outlines", "") else settings.get("text", "").strip()
         if not text:
             raise ValueError("书签列表为空")
@@ -496,7 +491,7 @@ def run_task(file_item, settings: dict):
         with open(out_path, 'wb') as f:
             writer.write(f)
 
-    elif output_mode == 1:
+    elif action_combo == 1:
         outlines = extract_outlines_from_pdf(src, offset)
         if not outlines:
             raise ValueError("PDF 中未找到任何书签")
@@ -506,7 +501,7 @@ def run_task(file_item, settings: dict):
         if os.path.exists(toc_path):
             os.remove(toc_path)
 
-    elif output_mode == 2:
+    elif action_combo == 2:
         text = getattr(file_item, "custom_outlines", "") if getattr(file_item, "custom_outlines", "") else settings.get("text", "").strip()
         if not text:
             raise ValueError("书签列表为空")

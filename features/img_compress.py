@@ -2,13 +2,12 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
 
 import os
-from PySide6.QtCore import Signal, Qt
+from PySide6.QtCore import Signal
 from PySide6.QtWidgets import (
-    QWidget, QVBoxLayout, QHBoxLayout, QLabel, QComboBox, QSpinBox, 
-    QCheckBox, QPushButton
+    QWidget, QVBoxLayout, QHBoxLayout, QLabel, QComboBox, QSpinBox,
+    QCheckBox, QPushButton, QSizePolicy
 )
 from core.utils import ensure_image_mode
-
 
 try:
     from PIL import Image, ImageSequence
@@ -21,77 +20,81 @@ class CompressPanel(QWidget):
     changed = Signal()
 
     def __init__(self):
+        """初始化设置面板"""
         super().__init__()
         layout = QVBoxLayout(self)
         layout.setSpacing(8)
 
-        group = QWidget()
-        group_layout = QVBoxLayout(group)
-        group_layout.setContentsMargins(0, 0, 0, 0)
+        self.light_btn = QPushButton("轻度")
+        self.light_btn.clicked.connect(lambda: self._apply_preset(85, 100, False, 256, 1, True))
+        self.light_btn.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
+        self.medium_btn = QPushButton("中等")
+        self.medium_btn.clicked.connect(lambda: self._apply_preset(75, 90, False, 128, 1, True))
+        self.medium_btn.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
+        self.strong_btn = QPushButton("强力")
+        self.strong_btn.clicked.connect(lambda: self._apply_preset(60, 80, False, 64, 2, True))
+        self.strong_btn.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
+        self.extreme_btn = QPushButton("极限")
+        self.extreme_btn.clicked.connect(lambda: self._apply_preset(40, 60, False, 32, 3, True))
+        self.extreme_btn.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
+       
+        row_preset = QHBoxLayout()
+        row_preset.addWidget(QLabel("预设:"))
+        row_preset.addWidget(self.light_btn, 1)
+        row_preset.addWidget(self.medium_btn, 1)
+        row_preset.addWidget(self.strong_btn, 1)
+        row_preset.addWidget(self.extreme_btn, 1)
+        layout.addLayout(row_preset)
 
-        preset_row = QHBoxLayout()
-        preset_row.addWidget(QLabel("预设:"))
-        self.btn_light = QPushButton("轻度")
-        self.btn_medium = QPushButton("中等")
-        self.btn_strong = QPushButton("强力")
-        self.btn_extreme = QPushButton("极限")
-        self.btn_light.clicked.connect(lambda: self._apply_preset(85, 100, False, 256, 1, True))
-        self.btn_medium.clicked.connect(lambda: self._apply_preset(75, 90, False, 128, 1, True))
-        self.btn_strong.clicked.connect(lambda: self._apply_preset(60, 80, False, 64, 2, True))
-        self.btn_extreme.clicked.connect(lambda: self._apply_preset(40, 60, False, 32, 3, True))
-        preset_row.addWidget(self.btn_light, 1)
-        preset_row.addWidget(self.btn_medium, 1)
-        preset_row.addWidget(self.btn_strong, 1)
-        preset_row.addWidget(self.btn_extreme, 1)
-        group_layout.addLayout(preset_row)
-
-        format_row = QHBoxLayout()
-        format_row.addWidget(QLabel("输出格式:"))
         self.format_combo = QComboBox()
         self.format_combo.addItems(["原格式", "JPG", "PNG", "WEBP", "GIF"])
-        format_row.addWidget(self.format_combo, 1)
-        group_layout.addLayout(format_row)
-
-        quality_row = QHBoxLayout()
-        quality_row.addWidget(QLabel("质量:"))
+        self.format_combo.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
+        self.gray_check = QCheckBox("转为灰度")
+        self.gray_check.setChecked(False)   
+        self.gray_check.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Fixed) 
         self.quality_spin = QSpinBox()
         self.quality_spin.setRange(1, 100)
         self.quality_spin.setValue(75)
         self.quality_spin.setSuffix(" %")
-        quality_row.addWidget(self.quality_spin, 1)
-        self.gray_check = QCheckBox("转为灰度")
-        quality_row.addWidget(self.gray_check)
-        group_layout.addLayout(quality_row)
-
-        scale_row = QHBoxLayout()
-        scale_row.addWidget(QLabel("缩放:"))
+        self.quality_spin.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
         self.scale_spin = QSpinBox()
         self.scale_spin.setRange(50, 100)
         self.scale_spin.setValue(100)
         self.scale_spin.setSuffix(" %")
-        scale_row.addWidget(self.scale_spin, 1)
-        group_layout.addLayout(scale_row)
-
-        color_row = QHBoxLayout()
-        color_row.addWidget(QLabel("最大颜色数:"))
+        self.scale_spin.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
         self.color_spin = QSpinBox()
         self.color_spin.setRange(2, 256)
         self.color_spin.setValue(256)
-        color_row.addWidget(self.color_spin, 1)
-        group_layout.addLayout(color_row)
-
-        frame_row = QHBoxLayout()
-        frame_row.addWidget(QLabel("抽帧间隔:"))
+        self.color_spin.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
         self.frame_spin = QSpinBox()
         self.frame_spin.setRange(1, 10)
         self.frame_spin.setValue(1)
-        frame_row.addWidget(self.frame_spin, 1)
-        self.keep_anim_check = QCheckBox("保留动画")
-        self.keep_anim_check.setChecked(True)
-        frame_row.addWidget(self.keep_anim_check)
-        group_layout.addLayout(frame_row)
+        self.frame_spin.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
+        self.animation_check = QCheckBox("保留动画")
+        self.animation_check.setChecked(True)      
+        self.animation_check.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Fixed)  
 
-        layout.addWidget(group)
+        row_param1 = QHBoxLayout()
+        row_param1.addWidget(QLabel("目标格式:"))
+        row_param1.addWidget(self.format_combo, 1)
+        row_param1.addWidget(self.gray_check)
+        row_param2 = QHBoxLayout()
+        row_param2.addWidget(QLabel("质量:"))
+        row_param2.addWidget(self.quality_spin, 1)
+        row_param2.addWidget(QLabel("缩放:"))
+        row_param2.addWidget(self.scale_spin, 1)
+        row_param3 = QHBoxLayout()
+        row_param3.addWidget(QLabel("最大颜色数:"))
+        row_param3.addWidget(self.color_spin, 1)
+        row_param4 = QHBoxLayout()
+        row_param4.addWidget(QLabel("抽帧间隔:"))
+        row_param4.addWidget(self.frame_spin, 1)
+        row_param4.addWidget(self.animation_check)        
+        layout.addLayout(row_param1)
+        layout.addLayout(row_param2)
+        layout.addLayout(row_param3)
+        layout.addLayout(row_param4)
+
         layout.addStretch()
 
         self.quality_spin.valueChanged.connect(self.changed)
@@ -100,23 +103,26 @@ class CompressPanel(QWidget):
         self.format_combo.currentIndexChanged.connect(self.changed)
         self.color_spin.valueChanged.connect(self.changed)
         self.frame_spin.valueChanged.connect(self.changed)
-        self.keep_anim_check.stateChanged.connect(self.changed)
+        self.animation_check.stateChanged.connect(self.changed)
 
     def _apply_preset(self, quality, scale, gray, colors, frame_interval, keep_anim):
+        """应用预设参数"""
         self.quality_spin.setValue(quality)
         self.scale_spin.setValue(scale)
         self.gray_check.setChecked(gray)
         self.color_spin.setValue(colors)
         self.frame_spin.setValue(frame_interval)
-        self.keep_anim_check.setChecked(keep_anim)
+        self.animation_check.setChecked(keep_anim)
         self.changed.emit()
 
 
 def build_panel() -> QWidget:
+    """构建面板实例"""
     return CompressPanel()
 
 
 def collect_settings(panel: CompressPanel) -> dict:
+    """收集面板设置"""
     fmt = panel.format_combo.currentText().lower()
     if fmt == "原格式":
         fmt = None
@@ -127,39 +133,36 @@ def collect_settings(panel: CompressPanel) -> dict:
         "target_format": fmt,
         "max_colors": panel.color_spin.value(),
         "frame_interval": panel.frame_spin.value(),
-        "keep_animation": panel.keep_anim_check.isChecked(),
+        "keep_animation": panel.animation_check.isChecked(),
     }
 
 
 def prepare_preview(items, settings: dict):
-    quality = settings.get("quality", 75)
-    scale = settings.get("scale", 1.0)
-    gray = settings.get("grayscale", False)
+    """生成预览信息"""
     fmt = settings.get("target_format")
-    fmt_display = fmt.upper() if fmt else "原格式"
-    colors = settings.get("max_colors", 256)
-    interval = settings.get("frame_interval", 1)
-    keep = settings.get("keep_animation", True)
-    desc = f"质量:{quality}%, 缩放:{int(scale*100)}%"
-    if gray:
-        desc += ", 灰度"
-    if fmt_display != "原格式":
-        desc += f", 格式:{fmt_display}"
-    if colors < 256:
-        desc += f", 颜色数:{colors}"
-    if interval > 1:
-        desc += f", 抽帧:{interval}"
-    if not keep:
-        desc += ", 仅首帧"
-    
     for it in items:
+        quality = settings.get("quality", 75)
+        scale = settings.get("scale", 1.0)
+        gray = settings.get("grayscale", False)
+        colors = settings.get("max_colors", 256)
+        interval = settings.get("frame_interval", 1)
+        keep = settings.get("keep_animation", True)
+        parts = [f"质量{quality}%", f"缩放{int(scale*100)}%"]
+        if gray:
+            parts.append("灰度")
         if fmt:
-            base = os.path.splitext(it.output_name)[0]
-            it.output_name = base + "." + fmt
-        it.preview_extra = {"A": desc}
+            parts.append(f"格式{fmt.upper()}")
+        if colors < 256:
+            parts.append(f"颜色数{colors}")
+        if interval > 1:
+            parts.append(f"抽帧间隔{interval}")
+        if not keep:
+            parts.append("仅首帧")
+        it.preview_extra = {"A": "，".join(parts)}
 
 
 def run_task(file_item, settings: dict):
+    """执行单个图片压缩任务"""
     if Image is None:
         raise RuntimeError("缺少 Pillow 库，请安装: pip install Pillow")
 
@@ -175,17 +178,7 @@ def run_task(file_item, settings: dict):
     out_dir = file_item.output_dir or os.path.dirname(src)
     os.makedirs(out_dir, exist_ok=True)
 
-    if target_fmt:
-        ext = target_fmt
-    else:
-        ext = os.path.splitext(src)[1][1:].lower()
-        if not ext:
-            ext = "png"
-
-    base_name = os.path.splitext(file_item.output_name)[0]
-    final_name = f"{base_name}.{ext}"
-    file_item.output_name = final_name
-    out_path = os.path.join(out_dir, final_name)
+    out_path = os.path.join(out_dir, file_item.output_name)
 
     try:
         im = Image.open(src)
@@ -200,8 +193,8 @@ def run_task(file_item, settings: dict):
         except EOFError:
             pass
         im = _process_single_frame(im, scale, grayscale, target_fmt, quality, max_colors)
-        im = ensure_image_mode(im, ext, fill_white=True)
-        save_format = _get_save_format(ext)
+        im = ensure_image_mode(im, target_fmt or "png", fill_white=True)
+        save_format = _get_save_format(target_fmt or "png")
         save_kwargs = _get_save_kwargs(save_format, quality)
         im.save(out_path, format=save_format, **save_kwargs)
         im.close()
@@ -209,11 +202,6 @@ def run_task(file_item, settings: dict):
         return
 
     if is_animated_gif and keep_animation and (target_fmt is None or target_fmt == "gif"):
-        out_ext = "gif"
-        final_name = f"{base_name}.gif"
-        file_item.output_name = final_name
-        out_path = os.path.join(out_dir, final_name)
-
         frames = []
         durations = []
         try:
@@ -260,7 +248,7 @@ def run_task(file_item, settings: dict):
         return
 
     im = _process_single_frame(im, scale, grayscale, target_fmt, quality, max_colors)
-    save_format = _get_save_format(ext)
+    save_format = _get_save_format(target_fmt or "png")
     save_kwargs = _get_save_kwargs(save_format, quality)
     im.save(out_path, format=save_format, **save_kwargs)
     im.close()
@@ -268,6 +256,7 @@ def run_task(file_item, settings: dict):
 
 
 def _process_single_frame(im, scale, grayscale, target_fmt, quality, max_colors):
+    """处理单帧图像"""
     if scale != 1.0:
         new_w = int(im.width * scale)
         new_h = int(im.height * scale)
@@ -297,6 +286,7 @@ def _process_single_frame(im, scale, grayscale, target_fmt, quality, max_colors)
 
 
 def _get_save_format(ext):
+    """将扩展名转换为 PIL 保存格式名称"""
     fmt = ext.upper()
     if fmt == "JPG":
         return "JPEG"
@@ -304,6 +294,7 @@ def _get_save_format(ext):
 
 
 def _get_save_kwargs(save_format, quality):
+    """根据保存格式生成 PIL 保存参数"""
     kwargs = {}
     if save_format == "JPEG":
         kwargs["quality"] = quality

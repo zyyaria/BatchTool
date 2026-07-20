@@ -2,10 +2,10 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
 
 import os
-from PySide6.QtCore import Signal, Qt
+from PySide6.QtCore import Signal
 from PySide6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QLabel, QComboBox, QSpinBox,
-    QCheckBox
+    QCheckBox, QSizePolicy
 )
 from core.utils import ensure_image_mode
 
@@ -20,92 +20,88 @@ class ResizePanel(QWidget):
     log_signal = Signal(str)
 
     def __init__(self):
+        """初始化设置面板"""
         super().__init__()
         layout = QVBoxLayout(self)
         layout.setSpacing(8)
 
-        action_row = QHBoxLayout()
-        action_row.addWidget(QLabel("操作模式:"))
-        self.action_mode = QComboBox()
-        self.action_mode.addItems([
-            "仅调整尺寸",
-            "仅修改DPI",
-            "调整尺寸+DPI"
-        ])
-        self.action_mode.currentIndexChanged.connect(self._on_action_mode_changed)
-        action_row.addWidget(self.action_mode, 1)
-        layout.addLayout(action_row)
-
-        self.size_widget = QWidget()
-        size_layout = QVBoxLayout(self.size_widget)
-        size_layout.setContentsMargins(0, 0, 0, 0)
-        size_layout.setSpacing(8)
-
-        size_row1 = QHBoxLayout()
-        size_row1.addWidget(QLabel("目标尺寸:"))
-        self.mode_combo = QComboBox()
-        self.mode_combo.addItems(["像素", "百分比", "短边约束", "长边约束"])
-        self.mode_combo.currentIndexChanged.connect(self._on_size_mode_changed)
-        size_row1.addWidget(self.mode_combo, 1)
+        self.action_combo = QComboBox()
+        self.action_combo.addItems(["仅调整尺寸", "仅修改 DPI", "调整尺寸+DPI"])
+        self.action_combo.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
+        self.size_combo = QComboBox()
+        self.size_combo.addItems(["像素", "百分比", "短边约束", "长边约束"])
+        self.size_combo.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
         self.aspect_check = QCheckBox("保持比例")
         self.aspect_check.setChecked(True)
-        size_row1.addWidget(self.aspect_check)
-        size_layout.addLayout(size_row1)
-
-        size_row2 = QHBoxLayout()
-        size_row2.addWidget(QLabel("宽度:"))
+        self.aspect_check.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Fixed)
+        self.size_widget = QWidget()
         self.width_spin = QSpinBox()
         self.width_spin.setRange(1, 99999)
         self.width_spin.setValue(1)
         self.width_spin.setSpecialValueText("")
-        self.width_spin.setMaximumWidth(112)
-        size_row2.addWidget(self.width_spin, 1)
-
-        size_row2.addWidget(QLabel("高度:"))
+        self.width_spin.setSizePolicy(QSizePolicy.Ignored, QSizePolicy.Fixed)
         self.height_spin = QSpinBox()
         self.height_spin.setRange(1, 99999)
         self.height_spin.setValue(1)
         self.height_spin.setSpecialValueText("")
-        self.height_spin.setMaximumWidth(112)
-        size_row2.addWidget(self.height_spin, 1)
-
-        size_layout.addLayout(size_row2)
-
-        layout.addWidget(self.size_widget)
-
+        self.height_spin.setSizePolicy(QSizePolicy.Ignored, QSizePolicy.Fixed)
         self.dpi_widget = QWidget()
-        dpi_row = QHBoxLayout(self.dpi_widget)
-        dpi_row.setContentsMargins(0, 0, 0, 0)
-        dpi_row.addWidget(QLabel("目标 DPI:"))
-        self.target_dpi_spin = QSpinBox()
-        self.target_dpi_spin.setRange(1, 3000)
-        self.target_dpi_spin.setValue(72)
-        dpi_row.addWidget(self.target_dpi_spin, 1)
-        layout.addWidget(self.dpi_widget)
-
-        fmt_row = QHBoxLayout()
-        fmt_row.addWidget(QLabel("输出格式:"))
+        self.dpi_spin = QSpinBox()
+        self.dpi_spin.setRange(1, 3000)
+        self.dpi_spin.setValue(72)
+        self.dpi_spin.setSuffix(" ppi")
+        self.dpi_spin.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)        
         self.format_combo = QComboBox()
         self.format_combo.addItems(["原格式", "PNG", "JPG", "WEBP", "BMP", "TIFF", "GIF", "ICO"])
-        fmt_row.addWidget(self.format_combo, 1)
-        layout.addLayout(fmt_row)
+        self.format_combo.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
+
+        row_param1 = QHBoxLayout()
+        row_param1.addWidget(QLabel("操作模式:"))
+        row_param1.addWidget(self.action_combo, 1)
+        row_param2 = QHBoxLayout()
+        row_param2.addWidget(QLabel("目标尺寸:"))
+        row_param2.addWidget(self.size_combo, 1)
+        row_param2.addWidget(self.aspect_check)
+        row_param3 = QHBoxLayout()
+        row_param3.addWidget(QLabel("宽度:"))
+        row_param3.addWidget(self.width_spin, 1)
+        row_param3.addWidget(QLabel("高度:"))
+        row_param3.addWidget(self.height_spin, 1)
+        row_param4 = QHBoxLayout(self.dpi_widget)
+        row_param4.setContentsMargins(0, 0, 0, 0)
+        row_param4.addWidget(QLabel("目标分辨率:"))
+        row_param4.addWidget(self.dpi_spin, 1)        
+        row_param5 = QHBoxLayout()
+        row_param5.addWidget(QLabel("目标格式:"))
+        row_param5.addWidget(self.format_combo, 1)        
+        size_layout = QVBoxLayout(self.size_widget)
+        size_layout.setSpacing(8)
+        size_layout.setContentsMargins(0, 0, 0, 0)
+        size_layout.addLayout(row_param2)       
+        size_layout.addLayout(row_param3)
+        layout.addLayout(row_param1)
+        layout.addWidget(self.size_widget)
+        layout.addWidget(self.dpi_widget)
+        layout.addLayout(row_param5)
 
         layout.addStretch()
 
-        self.action_mode.currentIndexChanged.connect(self.changed)
-        self.mode_combo.currentIndexChanged.connect(self._on_size_mode_changed)
-        self.mode_combo.currentIndexChanged.connect(self.changed)
+        self.action_combo.currentIndexChanged.connect(self._on_action_combo_changed)
+        self.action_combo.currentIndexChanged.connect(self.changed)
+        self.size_combo.currentIndexChanged.connect(self._on_size_mode_changed)
+        self.size_combo.currentIndexChanged.connect(self.changed)
         self.aspect_check.stateChanged.connect(self.changed)
         self.width_spin.valueChanged.connect(self.changed)
         self.height_spin.valueChanged.connect(self.changed)
-        self.target_dpi_spin.valueChanged.connect(self.changed)
+        self.dpi_spin.valueChanged.connect(self.changed)
         self.format_combo.currentIndexChanged.connect(self.changed)
 
-        self._on_action_mode_changed()
+        self._on_action_combo_changed()
         self._on_size_mode_changed()
 
-    def _on_action_mode_changed(self):
-        mode = self.action_mode.currentIndex()
+    def _on_action_combo_changed(self):
+        """操作模式切换时显示/隐藏尺寸和 DPI 控件"""
+        mode = self.action_combo.currentIndex()
         if mode == 1:
             self.size_widget.setVisible(False)
             self.dpi_widget.setVisible(True)
@@ -133,7 +129,8 @@ class ResizePanel(QWidget):
         self.changed.emit()
 
     def _on_size_mode_changed(self):
-        mode = self.mode_combo.currentIndex()
+        """尺寸模式切换时更新宽度/高度控件标签和范围"""
+        mode = self.size_combo.currentIndex()
         if mode == 0:
             self.width_spin.setSuffix(" px")
             self.height_spin.setSuffix(" px")
@@ -168,11 +165,13 @@ class ResizePanel(QWidget):
 
 
 def build_panel() -> QWidget:
+    """构建面板实例"""
     return ResizePanel()
 
 
 def collect_settings(panel: ResizePanel) -> dict:
-    mode = panel.mode_combo.currentIndex()
+    """收集面板设置"""
+    mode = panel.size_combo.currentIndex()
     mode_names = ["pixel", "percent", "short_edge", "long_edge"]
     w_val = panel.width_spin.value()
     h_val = panel.height_spin.value()
@@ -183,7 +182,7 @@ def collect_settings(panel: ResizePanel) -> dict:
     format_text = panel.format_combo.currentText()
     target_format = format_text.lower() if format_text != "原格式" else None
 
-    action = panel.action_mode.currentIndex()
+    action = panel.action_combo.currentIndex()
 
     return {
         "mode": mode_names[mode],
@@ -191,74 +190,62 @@ def collect_settings(panel: ResizePanel) -> dict:
         "height": h_val if h_val is not None and h_val > 0 else None,
         "keep_aspect": panel.aspect_check.isChecked(),
         "target_format": target_format,
-        "target_dpi": panel.target_dpi_spin.value(),
+        "target_dpi": panel.dpi_spin.value(),
         "action": action,
     }
 
 
 def prepare_preview(items, settings):
+    """生成预览信息"""
     mode = settings.get("mode", "pixel")
     w = settings.get("width")
     h = settings.get("height")
     keep = settings.get("keep_aspect", True)
     fmt = settings.get("target_format")
-    fmt_display = fmt.upper() if fmt else "原格式"
     target_dpi = settings.get("target_dpi", 72)
     action = settings.get("action", 0)
 
-    if action == 0:
-        desc = "仅调整尺寸"
-    elif action == 1:
-        desc = "仅修改DPI"
-    else:
-        desc = "调整尺寸+DPI"
-
-    if action != 1:
-        desc += f", 模式: {mode}"
-        if mode == "pixel":
-            if w is not None and h is not None:
-                desc += f", 宽={w}, 高={h}"
-            else:
-                desc += ", 请填写宽高"
-        elif mode == "percent":
-            if w is not None and h is not None:
-                desc += f", 宽={w}%, 高={h}%"
-            else:
-                desc += ", 请填写百分比"
-        elif mode == "short_edge":
-            desc += f", 短边={w}" if w is not None else ", 请填写短边"
-            desc += ", 长边=自动计算"
-        elif mode == "long_edge":
-            desc += f", 长边={w}" if w is not None else ", 请填写长边"
-            desc += ", 短边=自动计算"
-        desc += ", 保持比例" if keep else ", 拉伸"
-
-    if action != 0:
-        desc += f", DPI: {target_dpi}"
-    desc += f", 格式: {fmt_display}"
-
     for it in items:
-        if fmt:
-            base = os.path.splitext(it.output_name)[0]
-            it.output_name = base + "." + fmt
+        action_names = ["仅调整尺寸", "仅修改 DPI", "调整尺寸+DPI"]
+        action_desc = action_names[action] if action in (0,1,2) else "未知"
 
+        if action != 1:
+            if mode == "pixel":
+                size_desc = f"宽{w}px x 高{h}px" if (w and h) else "无效尺寸"
+            elif mode == "percent":
+                size_desc = f"宽{w}% x 高{h}%" if (w and h) else "无效百分比"
+            elif mode == "short_edge":
+                size_desc = f"短边{w}px，长边自动" if w else "无效"
+            elif mode == "long_edge":
+                size_desc = f"长边{w}px，短边自动" if w else "无效"
+            else:
+                size_desc = "未知模式"
+            if keep:
+                size_desc += "（保持比例）"
+            else:
+                size_desc += "（拉伸）"
+        else:
+            size_desc = "尺寸不变"
+
+        dpi_desc = f"DPI={target_dpi}" if action != 0 else f"原DPI"
+        fmt_display = fmt.upper() if fmt else "原格式"
         if not hasattr(it, "_orig_dpi_cache"):
             try:
                 with Image.open(it.input_path) as im:
                     dpi = im.info.get("dpi", (None, None))
-                    if isinstance(dpi, tuple) and len(dpi) >= 2 and dpi[0] is not None:
-                        if dpi[0] == dpi[1]:
-                            it._orig_dpi_cache = f"{dpi[0]:.0f}"
-                        else:
-                            it._orig_dpi_cache = f"{dpi[0]:.0f}x{dpi[1]:.0f}"
+                    if isinstance(dpi, tuple) and dpi[0] is not None:
+                        it._orig_dpi_cache = f"{dpi[0]:.0f}" if dpi[0]==dpi[1] else f"{dpi[0]:.0f}x{dpi[1]:.0f}"
                     else:
                         it._orig_dpi_cache = "未知"
             except Exception:
                 it._orig_dpi_cache = "读取失败"
-        it.preview_extra = {"A": f"{desc}（原DPI: {it._orig_dpi_cache}）"}
+        it.preview_extra = {
+            "A": f"{action_desc}：{size_desc}，{dpi_desc}，格式{fmt_display}（原DPI: {it._orig_dpi_cache}）"
+        }
 
 
 def run_task(file_item, settings):
+    """执行单个图片尺寸调整任务"""
     if Image is None:
         raise RuntimeError("缺少 Pillow 库")
 
@@ -338,21 +325,13 @@ def run_task(file_item, settings):
     else:
         final_dpi = (target_dpi, target_dpi)
 
-    if target_fmt:
-        ext = target_fmt
-    else:
-        ext = os.path.splitext(src)[1][1:].lower()
-        if not ext:
-            ext = "png"
-
     out_dir = file_item.output_dir or os.path.dirname(src)
     os.makedirs(out_dir, exist_ok=True)
+    out_path = os.path.join(out_dir, file_item.output_name)
 
-    base_name = os.path.splitext(file_item.output_name)[0]
-    final_name = f"{base_name}.{ext}"
-    file_item.output_name = final_name
-    out_path = os.path.join(out_dir, final_name)
-
+    ext = os.path.splitext(file_item.output_name)[1][1:].lower()
+    if not ext:
+        ext = "png"
     save_format = ext.upper()
     if save_format == "JPG":
         save_format = "JPEG"

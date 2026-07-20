@@ -4,113 +4,111 @@
 import os
 import sys
 import subprocess
-from PySide6.QtCore import Signal, QTime
+from PySide6.QtCore import Signal, QTime, Qt
 from PySide6.QtWidgets import (
-    QWidget, QVBoxLayout, QHBoxLayout, QLabel, QSpinBox, QComboBox,
-    QPushButton, QFileDialog, QMessageBox, QCheckBox, QSizePolicy,
-    QTimeEdit
+    QWidget, QVBoxLayout, QHBoxLayout, QLabel, QSpinBox, QPushButton,
+    QFileDialog, QMessageBox, QCheckBox, QSizePolicy, QTimeEdit
 )
-from core.utils import get_ffmpeg_path, load_app_config, save_app_config
+from core.utils import get_ffmpeg_path, save_app_config
 
 
 class VideoToGifPanel(QWidget):
     changed = Signal()
 
     def __init__(self):
+        """初始化设置面板"""
         super().__init__()
         self.ffmpeg_path = get_ffmpeg_path()
         layout = QVBoxLayout(self)
         layout.setSpacing(8)
 
-        time_row = QHBoxLayout()
-        time_row.addWidget(QLabel("截取时间:"))
+        self.start_time_edit = QTimeEdit()
+        self.start_time_edit.setDisplayFormat("HH:mm:ss")
+        self.start_time_edit.setTime(QTime(0, 0, 0))
+        self.start_time_edit.setSizePolicy(QSizePolicy.Ignored, QSizePolicy.Fixed)
+        self.end_time_edit = QTimeEdit()
+        self.end_time_edit.setDisplayFormat("HH:mm:ss")
+        self.end_time_edit.setTime(QTime(0, 0, 0))
+        self.end_time_edit.setSizePolicy(QSizePolicy.Ignored, QSizePolicy.Fixed)
+        self.fps_spin = QSpinBox()
+        self.fps_spin.setRange(1, 60)
+        self.fps_spin.setValue(10)
+        self.fps_spin.setSuffix(" fps")
+        self.fps_spin.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
+        self.width_spin = QSpinBox()
+        self.width_spin.setRange(16, 1920)
+        self.width_spin.setValue(320)
+        self.width_spin.setSuffix(" px")
+        self.width_spin.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
+        self.height_spin = QSpinBox()
+        self.height_spin.setRange(16, 1080)
+        self.height_spin.setValue(240)
+        self.height_spin.setSuffix(" px")
+        self.height_spin.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
+        self.color_spin = QSpinBox()
+        self.color_spin.setRange(16, 256)
+        self.color_spin.setValue(128)
+        self.color_spin.setSuffix(" 色")
+        self.color_spin.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
+        self.aspect_check = QCheckBox("保持比例")
+        self.aspect_check.setChecked(True)
+        self.aspect_check.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Fixed)
+        to_label = QLabel("至")
+        to_label.setFixedWidth(12)
+        to_label.setAlignment(Qt.AlignCenter)
+        to_label.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Fixed)
+        x_label = QLabel(" × ")
+        x_label.setFixedWidth(12)
+        x_label.setAlignment(Qt.AlignCenter)     
+        x_label.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Fixed)
 
-        self.start_time = QTimeEdit()
-        self.start_time.setDisplayFormat("HH:mm:ss")
-        self.start_time.setTime(QTime(0, 0, 0))
-        self.start_time.setMinimumWidth(80)
-        self.start_time.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
-        time_row.addWidget(self.start_time, 1)
+        row_param1 = QHBoxLayout()
+        row_param1.addWidget(QLabel("截取时间:"))
+        row_param1.addWidget(self.start_time_edit, 1)
+        row_param1.addWidget(to_label)
+        row_param1.addWidget(self.end_time_edit, 1)
+        row_param2 = QHBoxLayout()
+        row_param2.addWidget(QLabel("帧率:"))
+        row_param2.addWidget(self.fps_spin, 1)
+        row_param3 = QHBoxLayout()
+        row_param3.addWidget(QLabel("目标尺寸:"))
+        row_param3.addWidget(self.width_spin, 1)
+        row_param3.addWidget(x_label)
+        row_param3.addWidget(self.height_spin, 1)
+        row_param4 = QHBoxLayout()
+        row_param4.addWidget(QLabel("颜色数:"))
+        row_param4.addWidget(self.color_spin, 1)
+        row_param4.addWidget(self.aspect_check)
+        layout.addLayout(row_param1)
+        layout.addLayout(row_param2)
+        layout.addLayout(row_param3)
+        layout.addLayout(row_param4)
 
-        time_row.addWidget(QLabel(" 至 "))
-
-        self.end_time = QTimeEdit()
-        self.end_time.setDisplayFormat("HH:mm:ss")
-        self.end_time.setTime(QTime(0, 0, 0))
-        self.end_time.setMinimumWidth(80)
-        self.end_time.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
-        time_row.addWidget(self.end_time, 1)
-
-        layout.addLayout(time_row)
-
-        row5 = QHBoxLayout()
-        row5.addWidget(QLabel("帧率:"))
-        self.fps = QSpinBox()
-        self.fps.setRange(1, 60)
-        self.fps.setValue(10)
-        self.fps.setSuffix(" fps")
-        self.fps.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
-        self.fps.setMinimumWidth(40)
-        row5.addWidget(self.fps, 1)
-        layout.addLayout(row5)
-
-        row6 = QHBoxLayout()
-        row6.addWidget(QLabel("尺寸:"))
-        self.width = QSpinBox()
-        self.width.setRange(16, 1920)
-        self.width.setValue(320)
-        self.width.setSuffix(" px")
-        self.width.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
-        self.width.setMinimumWidth(50)
-        row6.addWidget(self.width, 1)
-        row6.addWidget(QLabel(" × "))
-        self.height = QSpinBox()
-        self.height.setRange(16, 1080)
-        self.height.setValue(240)
-        self.height.setSuffix(" px")
-        self.height.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
-        self.height.setMinimumWidth(50)
-        row6.addWidget(self.height, 1)
-        layout.addLayout(row6)
-
-        row7 = QHBoxLayout()
-        row7.addWidget(QLabel("颜色数:"))
-        self.colors = QSpinBox()
-        self.colors.setRange(16, 256)
-        self.colors.setValue(128)
-        self.colors.setSuffix(" 色")
-        self.colors.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
-        self.colors.setMinimumWidth(50)
-        row7.addWidget(self.colors, 1)
-        self.keep_aspect = QCheckBox("保持比例")
-        self.keep_aspect.setChecked(True)
-        row7.addWidget(self.keep_aspect)
-        layout.addLayout(row7)
-
-        ffmpeg_row = QHBoxLayout()
-        ffmpeg_row.addWidget(QLabel("FFmpeg 路径:"))
-        self.ffmpeg_path_label = QLabel(self.ffmpeg_path if self.ffmpeg_path else "未找到")
-        self.ffmpeg_path_label.setWordWrap(False)
-        self.ffmpeg_path_label.setStyleSheet("color: #555;")
+        self.ffmpeg_label = QLabel(self.ffmpeg_path if self.ffmpeg_path else "未找到")
+        self.ffmpeg_label.setWordWrap(False)
+        self.ffmpeg_label.setStyleSheet("color: #555;")
+        self.ffmpeg_label.setSizePolicy(QSizePolicy.Ignored, QSizePolicy.Fixed)
         if self.ffmpeg_path:
-            self.ffmpeg_path_label.setToolTip(self.ffmpeg_path)
-        self.ffmpeg_path_label.setMinimumWidth(200)
-        ffmpeg_row.addWidget(self.ffmpeg_path_label, 1)
-        layout.addLayout(ffmpeg_row)
-
+            self.ffmpeg_label.setToolTip(self.ffmpeg_path)
         self.ffmpeg_btn = QPushButton("手动指定 FFmpeg 路径")
-        self.ffmpeg_btn.clicked.connect(self.select_ffmpeg_path)
-        layout.addWidget(self.ffmpeg_btn)
+        self.ffmpeg_btn.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)        
+        
+        row_ffmpeg = QHBoxLayout()
+        row_ffmpeg.addWidget(QLabel("FFmpeg 路径:"))
+        row_ffmpeg.addWidget(self.ffmpeg_label, 1)
+        layout.addLayout(row_ffmpeg)
+        layout.addWidget(self.ffmpeg_btn, 1)
 
         layout.addStretch()
 
-        self.start_time.timeChanged.connect(self.changed)
-        self.end_time.timeChanged.connect(self.changed)
-        self.fps.valueChanged.connect(self.changed)
-        self.width.valueChanged.connect(self.changed)
-        self.height.valueChanged.connect(self.changed)
-        self.colors.valueChanged.connect(self.changed)
-        self.keep_aspect.stateChanged.connect(self.changed)
+        self.start_time_edit.timeChanged.connect(self.changed)
+        self.end_time_edit.timeChanged.connect(self.changed)
+        self.fps_spin.valueChanged.connect(self.changed)
+        self.width_spin.valueChanged.connect(self.changed)
+        self.height_spin.valueChanged.connect(self.changed)
+        self.color_spin.valueChanged.connect(self.changed)
+        self.aspect_check.stateChanged.connect(self.changed)
+        self.ffmpeg_btn.clicked.connect(self.select_ffmpeg_path)
 
     def select_ffmpeg_path(self):
         path, _ = QFileDialog.getOpenFileName(
@@ -119,23 +117,26 @@ class VideoToGifPanel(QWidget):
         )
         if path:
             try:
-                subprocess.run([path, "-version"], capture_output=True, check=True, encoding='utf-8')
+                subprocess.run([path, "-version"], capture_output=True, text=True,
+                               encoding='utf-8', errors='ignore', check=True)
                 save_app_config("ffmpeg_path", path)
                 self.ffmpeg_path = path
-                self.ffmpeg_path_label.setText(path)
-                self.ffmpeg_path_label.setToolTip(path)
+                self.ffmpeg_label.setText(path)
+                self.ffmpeg_label.setToolTip(path)
                 QMessageBox.information(self, "成功", "FFmpeg 路径已设置并保存。")
             except Exception as e:
                 QMessageBox.warning(self, "错误", f"所选文件不是有效的 FFmpeg 可执行文件：{e}")
 
 
 def build_panel() -> QWidget:
+    """构建面板实例"""
     return VideoToGifPanel()
 
 
 def collect_settings(panel: VideoToGifPanel) -> dict:
-    start = panel.start_time.time()
-    end = panel.end_time.time()
+    """收集面板设置"""
+    start = panel.start_time_edit.time()
+    end = panel.end_time_edit.time()
     return {
         "start_h": start.hour(),
         "start_m": start.minute(),
@@ -143,15 +144,16 @@ def collect_settings(panel: VideoToGifPanel) -> dict:
         "end_h": end.hour(),
         "end_m": end.minute(),
         "end_s": end.second(),
-        "fps": panel.fps.value(),
-        "width": panel.width.value(),
-        "height": panel.height.value(),
-        "colors": panel.colors.value(),
-        "keep_aspect": panel.keep_aspect.isChecked(),
+        "fps": panel.fps_spin.value(),
+        "width": panel.width_spin.value(),
+        "height": panel.height_spin.value(),
+        "colors": panel.color_spin.value(),
+        "aspect_check": panel.aspect_check.isChecked(),
     }
 
 
 def prepare_preview(items, settings):
+    """生成预览信息"""
     sh = settings.get("start_h", 0)
     sm = settings.get("start_m", 0)
     ss = settings.get("start_s", 0)
@@ -162,25 +164,24 @@ def prepare_preview(items, settings):
     width = settings.get("width", 320)
     height = settings.get("height", 240)
     colors = settings.get("colors", 128)
-    keep = settings.get("keep_aspect", True)
+    keep = settings.get("aspect_check", True)
 
     start_str = f"{sh:02d}:{sm:02d}:{ss:02d}"
     end_str = f"{eh:02d}:{em:02d}:{es:02d}"
 
     for it in items:
-        base = os.path.splitext(os.path.basename(it.input_path))[0]
-        it.output_name = base + ".gif"
-        it.preview_extra = {"A": f"转GIF {start_str}→{end_str} {fps}fps {width}x{height} {'保持比例' if keep else ''} 颜色{colors}"}
+        it.preview_extra = {
+            "A": f"转GIF {start_str}→{end_str}，{fps}fps，{width}x{height}，{'保持比例' if keep else '拉伸'}，颜色{colors}"
+        }
 
 
 def _to_seconds(h, m, s):
+    """将时分秒转换为总秒数"""
     return h * 3600 + m * 60 + s
 
 
-import subprocess
-import sys
-
-def video_to_gif(input_path, output_path, start_sec, duration_sec, fps, width, height, colors, keep_aspect):
+def video_to_gif(input_path, output_path, start_sec, duration_sec, fps, width, height, colors, aspect_check):
+    """使用 FFmpeg 将视频片段转换为 GIF"""
     ffmpeg = get_ffmpeg_path()
     if not ffmpeg:
         raise RuntimeError("未找到 FFmpeg，请安装并添加到 PATH，或手动指定路径")
@@ -195,7 +196,7 @@ def video_to_gif(input_path, output_path, start_sec, duration_sec, fps, width, h
         os.makedirs(out_dir, exist_ok=True)
 
     scale_filter = f"scale={width}:{height}"
-    if keep_aspect:
+    if aspect_check:
         scale_filter = f"scale={width}:{height}:force_original_aspect_ratio=decrease"
 
     palette_filter = f"fps={fps},{scale_filter},palettegen=max_colors={colors}"
@@ -215,6 +216,7 @@ def video_to_gif(input_path, output_path, start_sec, duration_sec, fps, width, h
         capture_output=True,
         text=True,
         encoding='utf-8',
+        errors='ignore',
         creationflags=subprocess.CREATE_NO_WINDOW if sys.platform == "win32" else 0
     )
 
@@ -231,6 +233,7 @@ def video_to_gif(input_path, output_path, start_sec, duration_sec, fps, width, h
         capture_output=True,
         text=True,
         encoding='utf-8',
+        errors='ignore',
         creationflags=subprocess.CREATE_NO_WINDOW if sys.platform == "win32" else 0
     )
 
@@ -239,6 +242,7 @@ def video_to_gif(input_path, output_path, start_sec, duration_sec, fps, width, h
 
 
 def run_task(file_item, settings):
+    """执行单个视频转 GIF 任务"""
     sh = settings.get("start_h", 0)
     sm = settings.get("start_m", 0)
     ss = settings.get("start_s", 0)
@@ -250,7 +254,7 @@ def run_task(file_item, settings):
     width = settings.get("width", 320)
     height = settings.get("height", 240)
     colors = settings.get("colors", 128)
-    keep_aspect = settings.get("keep_aspect", True)
+    aspect_check = settings.get("aspect_check", True)
 
     start_sec = _to_seconds(sh, sm, ss)
     end_sec = _to_seconds(eh, em, es)
@@ -264,10 +268,7 @@ def run_task(file_item, settings):
     out_dir = file_item.output_dir or os.path.dirname(src)
     os.makedirs(out_dir, exist_ok=True)
 
-    base_name = os.path.splitext(file_item.output_name)[0]
-    out_name = base_name + ".gif"
-    out_path = os.path.join(out_dir, out_name)
-    file_item.output_name = out_name
+    out_path = os.path.join(out_dir, file_item.output_name)
 
-    video_to_gif(src, out_path, start_sec, duration_sec, fps, width, height, colors, keep_aspect)
+    video_to_gif(src, out_path, start_sec, duration_sec, fps, width, height, colors, aspect_check)
     file_item.status = "完成"

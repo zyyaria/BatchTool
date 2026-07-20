@@ -5,7 +5,6 @@ import os
 import re
 import sys
 import time
-import fitz
 import subprocess
 from typing import List, Callable
 from dataclasses import dataclass, field
@@ -15,9 +14,8 @@ from PySide6.QtWidgets import (
     QMainWindow, QWidget, QVBoxLayout, QHBoxLayout, QPushButton, QTableWidget,
     QTableWidgetItem, QFileDialog, QLabel, QProgressBar, QTextEdit, QComboBox,
     QLineEdit, QHeaderView, QMessageBox, QGroupBox, QInputDialog, QAbstractItemView,
-    QSplitter, QScrollArea, QDialog, QCheckBox, QTextBrowser, QDialogButtonBox,
-    QSpinBox, QListWidget, QMenu, QFrame, QStackedWidget, QButtonGroup,
-    QGridLayout, QRadioButton, QStyle
+    QSplitter, QScrollArea, QDialog, QCheckBox, QTextBrowser, QSpinBox, 
+    QListWidget, QMenu, QStackedWidget, QButtonGroup, QRadioButton
 )
 from .utils import resource_path, sanitize_base_name, parse_page_range, NamingRules
 from .help import GENERAL_HELP_TEXT, get_about_text
@@ -34,8 +32,10 @@ class FileItem:
     custom_outlines: str = ""
     checked: bool = True
     output_paths: list = field(default_factory=list)
+    force_ext: str = ""
 
     def full_output_path(self):
+        """返回完整输出路径"""
         if not self.output_dir:
             self.output_dir = os.path.dirname(self.input_path)
         return os.path.join(self.output_dir, self.output_name)
@@ -43,10 +43,12 @@ class FileItem:
 
 class OutputPath:
     def __init__(self, mode="source", custom_dir=""):
+        """初始化输出路径管理器"""
         self.mode = mode
         self.custom_dir = custom_dir
 
     def get_dir(self, file_path: str) -> str:
+        """根据模式返回输出目录"""
         if self.mode == "custom" and self.custom_dir:
             return self.custom_dir
         return os.path.dirname(file_path)
@@ -54,31 +56,38 @@ class OutputPath:
 
 class FileListModel:
     def __init__(self):
+        """初始化文件列表模型"""
         self.items: List[FileItem] = []
 
     def add_files(self, paths: List[str]):
+        """批量添加文件项"""
         for p in paths:
             item = FileItem(input_path=p)
             item.output_name = os.path.basename(p)
             self.items.append(item)
 
     def remove_selected(self, indices: List[int]):
+        """根据索引列表移除文件项"""
         self.items = [item for i, item in enumerate(self.items) if i not in indices]
 
     def clear(self):
+        """清空所有文件项"""
         self.items.clear()
 
     def update_output_name(self, index: int, new_name: str):
+        """更新指定索引的输出文件名"""
         if 0 <= index < len(self.items):
             self.items[index].output_name = new_name
 
     def update_preview(self, diff_data: List[dict]):
+        """更新所有项的预览额外数据"""
         for i, data in enumerate(diff_data):
             if i < len(self.items):
                 self.items[i].preview_extra = data
 
 
 class WorkerSignals(QObject):
+    """定义工作线程的信号"""
     log = Signal(str)
     log_batch = Signal(list)
     progress = Signal(int, int)
@@ -87,14 +96,17 @@ class WorkerSignals(QObject):
 
 class Worker(QObject):
     def __init__(self):
+        """初始化工作线程"""
         super().__init__()
         self.signals = WorkerSignals()
         self._stop_requested = False
 
     def request_stop(self):
+        """请求停止当前任务"""
         self._stop_requested = True
 
     def run(self, items: List[FileItem], task_func: Callable[[FileItem], None]):
+        """依次处理文件项"""
         total = len(items)
         log_buffer = []
 
@@ -140,6 +152,7 @@ class BatchWorker(QObject):
     progress_signal = Signal(int, int)
 
     def __init__(self, items, settings, get_output_dir, get_output_name_for_group, module):
+        """初始化批处理工作者"""
         super().__init__()
         self.items = items
         self.settings = settings
@@ -148,6 +161,7 @@ class BatchWorker(QObject):
         self.module = module
 
     def run(self):
+        """运行批处理任务"""
         try:
             output_files = self.module.run_batch(
                 self.items,
@@ -169,6 +183,7 @@ class BatchThread(QThread):
     finished = Signal(list)
 
     def __init__(self, items, settings, get_output_dir, get_output_name_for_group, module):
+        """初始化批处理线程"""
         super().__init__()
         self.items = items
         self.settings = settings
@@ -178,9 +193,11 @@ class BatchThread(QThread):
         self._stop_requested = False
 
     def request_stop(self):
+        """请求停止批处理线程"""
         self._stop_requested = True
 
     def run(self):
+        """执行批处理"""
         try:
             total = len(self.items)
             def progress_wrapper(p):
@@ -204,6 +221,7 @@ class BatchThread(QThread):
 
 class UIMixin:
     def _build_top_bar(self):
+        """构建顶部操作栏"""
         bar = QHBoxLayout()
         self.btn_add_file = QPushButton("添加文件")
         self.btn_add_file.setStyleSheet("background-color: #4CAF50; color: white; border: none; padding: 6px 12px; border-radius: 6px;")
@@ -226,6 +244,7 @@ class UIMixin:
         return bar
 
     def _build_table_panel(self):
+        """构建文件列表表格面板"""
         panel = QWidget()
         lay = QVBoxLayout(panel)
 
@@ -259,6 +278,7 @@ class UIMixin:
 
         self.table = QTableWidget(0, 6)
         self.table.setHorizontalHeaderLabels(["选择", "序号", "输入文件名", "设置", "输出文件名", "状态"])
+        self.table.setWordWrap(True)
         self.table.verticalHeader().setVisible(False)
         self.table.setSelectionBehavior(QAbstractItemView.SelectRows)
         self.table.setSelectionMode(QAbstractItemView.ExtendedSelection)
@@ -285,6 +305,7 @@ class UIMixin:
         return panel
 
     def _build_log_panel(self):
+        """构建日志面板"""
         panel = QWidget()
         lay = QVBoxLayout(panel)
 
@@ -331,6 +352,7 @@ class UIMixin:
         return panel
 
     def _build_right_panel(self):
+        """构建右侧设置面板"""
         panel = QWidget()
         panel.setMinimumWidth(380)
         root = QVBoxLayout(panel)
@@ -338,26 +360,9 @@ class UIMixin:
         grp_feature = QGroupBox("功能")
         v = QVBoxLayout(grp_feature)
 
-        if len(self.categories) > 1:
-            box_row = QHBoxLayout()
-            box_row.setSpacing(8)
-            self.category_box = QComboBox()
-            cat_name_map = {"pdf": "PDF", "img": "图片", "video": "视频"}
-            for cat in self.categories:
-                display_name = cat_name_map.get(cat, cat)
-                self.category_box.addItem(display_name, cat)
-            self.category_box.currentIndexChanged.connect(self._on_category_changed)
-            self.category_box.setFixedWidth(80)
-            box_row.addWidget(self.category_box)
-
-            self.feature_box = QComboBox()
-            self._refresh_feature_box()
-            box_row.addWidget(self.feature_box, 1)
-            v.addLayout(box_row)
-        else:
-            self.feature_box = QComboBox()
-            self._refresh_feature_box()
-            v.addWidget(self.feature_box)
+        self.feature_box = QComboBox()
+        self._refresh_feature_box()
+        v.addWidget(self.feature_box)
 
         root.addWidget(grp_feature)
 
@@ -442,13 +447,14 @@ class BaseMainWindow(UIMixin, QMainWindow):
     COL_STATUS = 5
 
     def __init__(self, app_title: str, feature_modules: list, icon_path: str = "logo.ico", help_text: str = ""):
+        """初始化主窗口"""
         super().__init__()
         self._help_text = help_text
         self.setWindowTitle(app_title)
         icon_full_path = resource_path(icon_path)
         if os.path.exists(icon_full_path):
             self.setWindowIcon(QIcon(icon_full_path))
-        self.resize(1080, 680)
+        self.resize(1080, 700)
 
         self.setStyleSheet("""
             QPushButton { padding: 6px 12px; min-height: 32px; font-weight: 600; border: 1px solid #c9c9c9; border-radius: 6px; }
@@ -477,9 +483,7 @@ class BaseMainWindow(UIMixin, QMainWindow):
         self.progress_update_interval = 0.1
 
         self.all_features = feature_modules
-        self.categories = self._extract_categories(feature_modules)
-        self.current_category = self.categories[0] if self.categories else None
-        self.feature_modules = self._filter_features_by_category(self.current_category)
+        self.feature_modules = feature_modules
         self.feature_panels = []
 
         top_bar = self._build_top_bar()
@@ -515,27 +519,8 @@ class BaseMainWindow(UIMixin, QMainWindow):
         self.esc_shortcut = QShortcut(QKeySequence("Esc"), self)
         self.esc_shortcut.activated.connect(self._stop_task)
 
-    def _extract_categories(self, features):
-        cats = set()
-        for feat in features:
-            if "category" in feat:
-                cats.add(feat["category"])
-        ordered = []
-        if "pdf" in cats:
-            ordered.append("pdf")
-        if "img" in cats:
-            ordered.append("img")
-        for c in cats:
-            if c not in ordered:
-                ordered.append(c)
-        return ordered
-
-    def _filter_features_by_category(self, category):
-        if category is None:
-            return self.all_features
-        return [f for f in self.all_features if f.get("category") == category]
-
     def _on_header_clicked(self, logicalIndex):
+        """处理表头点击事件"""
         if logicalIndex == self.COL_INPUT:
             self.sort_reverse = not self.sort_reverse
             self.user_sorted = True
@@ -544,16 +529,17 @@ class BaseMainWindow(UIMixin, QMainWindow):
             self._toggle_all_checkboxes()
 
     def _toggle_all_checkboxes(self):
+        """切换所有文件项的选中状态"""
         if not self.preview_mgr.items:
             return
-        all_checked = all(item.checked for item in self.preview_mgr.items)
-        new_state = not all_checked
+        new_state = not all(item.checked for item in self.preview_mgr.items)
         for item in self.preview_mgr.items:
             item.checked = new_state
         self.refresh_table()
         self.append_log(f"已{'全选' if new_state else '取消全选'}")
 
     def _apply_sorting(self):
+        """按输入文件名排序"""
         if not self.user_sorted:
             return
         if not self.preview_mgr.items:
@@ -562,6 +548,7 @@ class BaseMainWindow(UIMixin, QMainWindow):
         self.refresh_feature_preview()
 
     def show_help_general(self):
+        """显示帮助对话框"""
         dialog = QDialog(self)
         dialog.setWindowTitle("帮助")
         dialog.resize(780, 550)
@@ -602,7 +589,6 @@ class BaseMainWindow(UIMixin, QMainWindow):
             "📄 关于程序": get_about_text(),
         }
         self.help_browser.setHtml(self.help_content["📖 功能说明"])
-        
         self.help_toc.currentItemChanged.connect(self._on_help_toc_changed)
 
         btn_ok = QPushButton("确定")
@@ -617,30 +603,27 @@ class BaseMainWindow(UIMixin, QMainWindow):
 
         dialog.exec()
 
-    def _on_help_toc_changed(self, current, previous):
+    def _on_help_toc_changed(self, current, _previous):
+        """帮助目录切换时更新内容"""
         if current:
             title = current.text()
             if title in self.help_content:
                 self.help_browser.setHtml(self.help_content[title])
 
     def _refresh_feature_box(self):
+        """刷新功能下拉框"""
         self.feature_box.blockSignals(True)
         self.feature_box.clear()
         for feat in self.feature_modules:
             self.feature_box.addItem(feat["name"])
         self.feature_box.blockSignals(False)
 
-    def _on_category_changed(self, idx):
-        if idx < 0 or idx >= len(self.categories):
-            return
-        self.current_category = self.categories[idx]
-        self.feature_modules = self._filter_features_by_category(self.current_category)
-        self._refresh_feature_box()
-        self._init_feature_panels()
-        self.feature_box.setCurrentIndex(0)
-        self.on_feature_changed(0)
+    def _on_setting_changed(self):
+        """功能设置变更时的回调"""
+        self.recompute_outputs()
 
     def _init_feature_panels(self):
+        """初始化所有功能的面板"""
         while self.layout_specific.count():
             item = self.layout_specific.takeAt(0)
             w = item.widget()
@@ -652,25 +635,29 @@ class BaseMainWindow(UIMixin, QMainWindow):
             panel = feat["module"].build_panel()
             self.layout_specific.addWidget(panel)
             self.feature_panels.append(panel)
-            panel.changed.connect(self.refresh_feature_preview)
+            panel.changed.connect(self._on_setting_changed)
             self._connect_extra_signals(feat, panel)
 
         if self.feature_panels:
             self._show_only_panel(self.feature_panels[0])
         self.refresh_feature_preview()
 
-    def _connect_extra_signals(self, feat, panel):
+    def _connect_extra_signals(self, _feat, _panel):
+        """连接额外信号"""
         pass
 
     def _show_only_panel(self, panel_to_show):
+        """只显示指定的功能面板，隐藏其他"""
         for panel in self.feature_panels:
             panel.setVisible(panel is panel_to_show)
 
     def _finalize_file_addition(self):
+        """文件添加完成后的收尾操作"""
         self.sort_reverse = False
         self.recompute_outputs()
 
     def add_files(self, paths=None):
+        """添加文件"""
         if paths is not None and not isinstance(paths, (list, tuple)):
             paths = None
         if paths is None:
@@ -683,6 +670,7 @@ class BaseMainWindow(UIMixin, QMainWindow):
         self._finalize_file_addition()
 
     def add_folder(self):
+        """添加文件夹"""
         folder = QFileDialog.getExistingDirectory(self, "选择文件夹")
         if not folder:
             return
@@ -695,6 +683,7 @@ class BaseMainWindow(UIMixin, QMainWindow):
         self._finalize_file_addition()
 
     def remove_selected_rows(self):
+        """移除当前选中的行"""
         rows = sorted({idx.row() for idx in self.table.selectedIndexes()}, reverse=True)
         if not rows:
             QMessageBox.information(self, "提示", "请先选中要移除的行")
@@ -703,17 +692,20 @@ class BaseMainWindow(UIMixin, QMainWindow):
         self.refresh_feature_preview()
 
     def clear_list(self):
+        """清空文件列表和自定义分组名"""
         self.preview_mgr.clear()
         self.refresh_feature_preview()
         self.group_custom_names.clear()
 
     def choose_output_dir(self):
+        """弹出文件夹选择对话框设置自定义输出目录"""
         path = QFileDialog.getExistingDirectory(self, "选择输出文件夹")
         if path:
             self.output_dir.setText(path)
 
     def open_output_dir(self):
-        if self.output_mode.currentIndex() == 1 and self.output_dir.text().strip():
+        """打开输出目录"""
+        if self.output_dir.text().strip():
             target = self.output_dir.text().strip()
         else:
             if not self.preview_mgr.items:
@@ -731,11 +723,13 @@ class BaseMainWindow(UIMixin, QMainWindow):
             subprocess.run(["xdg-open", target])
 
     def on_feature_changed(self, idx: int):
+        """功能切换时显示对应面板并刷新预览"""
         if idx < len(self.feature_panels):
             self._show_only_panel(self.feature_panels[idx])
         self.refresh_feature_preview()
 
     def _show_naming_editor(self):
+        """弹出命名规则编辑器对话框"""
         from .utils import NamingRules
         dlg = NamingRulesDialog(self.naming_rules, self)
         if dlg.exec() == QDialog.Accepted:
@@ -750,6 +744,7 @@ class BaseMainWindow(UIMixin, QMainWindow):
             self.recompute_outputs()
 
     def _on_naming_rule_cleared(self, text):
+        """命名规则显示框被清空时重置规则为禁用"""
         if not text:
             self.naming_rules = NamingRules()
             self.naming_rules.enabled = False
@@ -757,24 +752,20 @@ class BaseMainWindow(UIMixin, QMainWindow):
             self.recompute_outputs()
 
     def recompute_outputs(self):
+        """重新计算所有文件的输出路径和文件名"""
         self.output_path.mode = "custom" if self.output_dir.text().strip() else "source"
         self.output_path.custom_dir = self.output_dir.text().strip()
 
         idx = self.feature_box.currentIndex()
-        is_batch = False
+        module = None
+        settings = {}
         if idx >= 0 and idx < len(self.feature_modules):
             module = self.feature_modules[idx]["module"]
-            is_batch = hasattr(module, "run_batch")
-
-        custom_names = []
-        if self.naming_rules.enabled:
-            for rule in self.naming_rules.rules:
-                if rule.rule_type == "user_input" and rule.enabled:
-                    custom_names = rule.params.get("names", [])
-                    break
+            if hasattr(module, "collect_settings"):
+                settings = module.collect_settings(self.feature_panels[idx])
 
         group_name_map = {}
-        if is_batch and self.naming_rules.enabled and custom_names:
+        if hasattr(module, "run_batch"):
             groups = {}
             for item in self.preview_mgr.items:
                 if item.checked:
@@ -782,42 +773,85 @@ class BaseMainWindow(UIMixin, QMainWindow):
                     if gk:
                         groups.setdefault(gk, []).append(item)
             group_keys = sorted(groups.keys(), key=lambda k: self.preview_mgr.items.index(groups[k][0]))
-            for g_idx, gk in enumerate(group_keys):
-                if g_idx < len(custom_names):
-                    group_name_map[gk] = custom_names[g_idx]
-                else:
-                    group_name_map[gk] = gk
+            for gk in group_keys:
+                if gk in self.group_custom_names:
+                    group_name_map[gk] = self.group_custom_names[gk]
+
+        module_name = module.__name__.split('.')[-1] if module else ""
 
         for idx, item in enumerate(self.preview_mgr.items):
             item.output_dir = self.output_path.get_dir(item.input_path)
             base_name = os.path.splitext(os.path.basename(item.input_path))[0]
+            original_ext = os.path.splitext(item.input_path)[1]
 
-            if is_batch and item.checked:
-                gk = item.preview_extra.get("group_key", "")
-                if gk and gk in group_name_map:
-                    base_name = group_name_map[gk]
+            gk = item.preview_extra.get("group_key", "")
+            if gk and gk in group_name_map:
+                base_name = group_name_map[gk]
+            elif not getattr(item, "locked_name", False) and self.naming_rules.enabled:
+                base_name = self.naming_rules.apply(base_name, idx)
 
-            if self.naming_rules.enabled and any(r.enabled for r in self.naming_rules.rules):
-                suggested = self.naming_rules.apply(base_name, idx)
+            if module_name == "pdf_organize" and not getattr(item, "locked_name", False):
+                mode = settings.get("mode", 0)
+                suffix_map = {
+                    0: "_提取",
+                    1: "_插入",
+                    2: "_替换",
+                    3: "_拆分",
+                    4: "_重排",
+                    5: "_删除"
+                }
+                suffix = suffix_map.get(mode, "")
+                base_name = base_name + suffix
+
+            force_ext = self._get_force_ext_from_settings(module, settings)
+
+            if force_ext:
+                ext = "." + force_ext
+            elif original_ext:
+                ext = original_ext
             else:
-                suggested = base_name
-
-            if item.output_name:
-                ext = os.path.splitext(item.output_name)[1]
-            else:
-                ext = os.path.splitext(item.input_path)[1]
-            if not ext:
                 ext = ".pdf"
 
-            if not suggested.endswith(ext):
-                suggested += ext
-
             if not getattr(item, "locked_name", False):
-                item.output_name = os.path.basename(suggested)
+                item.output_name = base_name + ext
 
         self.refresh_feature_preview()
 
+    def _get_force_ext_from_settings(self, module, settings):
+        """根据功能模块和设置强制指定输出扩展名"""
+        if module is None:
+            return None
+        module_name = module.__name__.split('.')[-1]
+
+        mapping = {
+            "img_compress": ("target_format", None),
+            "img_convert": ("target_format", "png"),
+            "img_resize": ("target_format", None),
+            "img_split": ("target_format", "原格式"),
+            "pdf_convert": ("target", "pdf"),
+            "pdf_compress": ("__fixed__", "pdf"),
+            "video_cut": ("output_format", "原格式"),
+            "video_gifmaker": ("__fixed__", "gif"),
+            "video_merge": ("output_format", "mp4"),
+            "img_merge": ("output_format", "png"),
+            "pdf_merge": ("__fixed__", "pdf"),
+            "img_gifmaker": ("__fixed__", "gif"),
+        }
+
+        if module_name not in mapping:
+            return None
+
+        key, default = mapping[module_name]
+        if key == "__fixed__":
+            return default
+        
+        fmt = settings.get(key, default)
+        if module_name in ("img_split", "video_cut"):
+            return fmt if fmt != "原格式" else None
+        return fmt
+
     def refresh_feature_preview(self):
+        """刷新当前功能的预览数据并刷新表格"""
         if getattr(self, 'is_processing', False):
             return
         if not self.preview_mgr.items:
@@ -831,6 +865,7 @@ class BaseMainWindow(UIMixin, QMainWindow):
         self.refresh_table()
 
     def refresh_table(self):
+        """刷新表格显示"""
         if getattr(self, 'is_processing', False):
             return
 
@@ -915,6 +950,7 @@ class BaseMainWindow(UIMixin, QMainWindow):
         self.table.updateGeometry()
 
     def _on_checkbox_toggled(self, row: int, state: int):
+        """复选框切换时更新文件项的状态"""
         if row < 0 or row >= len(self.preview_mgr.items):
             return
         fi = self.preview_mgr.items[row]
@@ -929,18 +965,22 @@ class BaseMainWindow(UIMixin, QMainWindow):
                 status_item.setText("待处理")
 
     def _handle_drag_event(self, event):
+        """处理拖拽事件"""
         if event.mimeData().hasUrls():
             event.acceptProposedAction()
         else:
             event.ignore()
 
     def dragEnterEvent(self, event):
+        """拖拽进入事件"""
         self._handle_drag_event(event)
 
     def dragMoveEvent(self, event):
+        """拖拽移动事件"""
         self._handle_drag_event(event)
 
     def dropEvent(self, event):
+        """放下事件"""
         if event.mimeData().hasUrls():
             if event.source() == self.table:
                 event.acceptProposedAction()
@@ -971,6 +1011,7 @@ class BaseMainWindow(UIMixin, QMainWindow):
             self.append_log("已调整文件顺序")
 
     def _sync_items_from_table(self):
+        """从表格顺序同步文件列表"""
         new_items = []
         for row in range(self.table.rowCount()):
             input_item = self.table.item(row, self.COL_INPUT)
@@ -985,6 +1026,7 @@ class BaseMainWindow(UIMixin, QMainWindow):
             self.preview_mgr.items = new_items
 
     def on_cell_double_clicked(self, item: QTableWidgetItem):
+        """双击单元格处理"""
         row = item.row()
         fi = self.preview_mgr.items[row]
         col = item.column()
@@ -993,7 +1035,6 @@ class BaseMainWindow(UIMixin, QMainWindow):
         if idx < 0:
             return
         module = self.feature_modules[idx]["module"]
-        feature_name = self.feature_modules[idx]["name"]
 
         if col == self.COL_OUTNAME:
             if hasattr(module, "run_batch"):
@@ -1018,22 +1059,8 @@ class BaseMainWindow(UIMixin, QMainWindow):
                         QMessageBox.warning(self, "提示", "文件名不能为空")
                         return
                     self.group_custom_names[group_name] = new_base
-
-                    current_row = self.table.currentRow()
-                    scroll_pos = self.table.verticalScrollBar().value()
-
-                    self.refresh_table()
+                    self._refresh_table_preserve_scroll()
                     self.append_log(f"分组「{group_name}」输出文件名已改为: {new_base}")
-
-                    if current_row >= 0 and current_row < self.table.rowCount():
-                        self.table.selectRow(current_row)
-                        from PySide6.QtCore import QTimer
-                        QTimer.singleShot(10, lambda: self.table.scrollToItem(
-                            self.table.item(current_row, 0),
-                            QAbstractItemView.PositionAtCenter
-                        ))
-                    else:
-                        self.table.verticalScrollBar().setValue(scroll_pos)
                 return
 
             current_name = fi.output_name or os.path.basename(fi.input_path)
@@ -1078,32 +1105,22 @@ class BaseMainWindow(UIMixin, QMainWindow):
             fi.output_name = new_base + ext
             fi.locked_name = True
 
-            current_row = self.table.currentRow()
-            scroll_pos = self.table.verticalScrollBar().value()
-
-            self.refresh_table()
-
-            if current_row >= 0 and current_row < self.table.rowCount():
-                self.table.selectRow(current_row)
-                self.table.scrollToItem(self.table.item(current_row, 0), QAbstractItemView.PositionAtCenter)
-            else:
-                self.table.verticalScrollBar().setValue(scroll_pos)
+            self._refresh_table_preserve_scroll()
             return
-        
-    def start_task(self):
+
+    def _validate_items(self) -> bool:
+        """检查并清理无效文件，返回 True 表示通过验证，False 表示不满足启动条件"""
         idx = self.feature_box.currentIndex()
         if idx < 0:
-            return
-        module = self.feature_modules[idx]["module"]
-        panel = self.feature_panels[idx]
-
+            return False
+        
         if self.current_thread and self.current_thread.isRunning():
             QMessageBox.warning(self, "提示", "已有任务正在运行，请稍后")
-            return
+            return False
         if self.batch_thread and self.batch_thread.isRunning():
             QMessageBox.warning(self, "提示", "已有批处理任务正在运行，请稍后")
-            return
-
+            return False
+        
         items_before = len(self.preview_mgr.items)
         valid_items = []
         for item in self.preview_mgr.items:
@@ -1117,18 +1134,25 @@ class BaseMainWindow(UIMixin, QMainWindow):
 
         if not self.preview_mgr.items:
             QMessageBox.warning(self, "提示", "请先添加文件")
-            return
+            return False
 
-        checked_items = [item for item in self.preview_mgr.items if item.checked]
-        if not checked_items:
-            QMessageBox.warning(self, "提示", "没有勾选任何文件")
-            return
+        return True
 
-        if self.feature_modules[idx]["name"] == "压缩PDF文件":
-            from features.pdf_compress import ensure_ghostscript
-            if not ensure_ghostscript(self):
-                self.append_log("❌ Ghostscript 未配置，压缩任务取消")
-                return
+    def _is_batch_module(self) -> bool:
+        """判断当前功能是否属于批处理模块"""
+        idx = self.feature_box.currentIndex()
+        if idx < 0:
+            return False
+        module = self.feature_modules[idx]["module"]
+        module_name = module.__name__.split('.')[-1]
+        batch_modules = ["pdf_organize", "img_merge", "img_gifmaker", "pdf_merge", "video_merge", "img_gifmerge"]
+        return module_name in batch_modules
+
+    def _run_batch_task(self, checked_items):
+        """执行批处理任务"""
+        idx = self.feature_box.currentIndex()
+        module = self.feature_modules[idx]["module"]
+        panel = self.feature_panels[idx]
 
         settings = module.collect_settings(panel)
         custom_names = []
@@ -1139,69 +1163,43 @@ class BaseMainWindow(UIMixin, QMainWindow):
                     break
         settings["custom_names"] = custom_names
 
-        module_name = module.__name__.split('.')[-1]
+        def get_output_dir(item):
+            if self.output_dir.text().strip():
+                return self.output_dir.text().strip()
+            else:
+                return os.path.dirname(item.input_path)
+            
+        groups = {}
+        for item in checked_items:
+            gk = item.preview_extra.get("group_key", "")
+            if gk:
+                groups.setdefault(gk, []).append(item)
+        group_keys = sorted(groups.keys(), key=lambda k: checked_items.index(groups[k][0]))
 
-        batch_modules = ["pdf_organize", "img_stitch", "img_gifmaker", "pdf_merge", "video_merge"]
-        if module_name in batch_modules:
-            def get_output_dir(item):
-                if self.output_dir.text().strip():
-                    return self.output_dir.text().strip()
-                else:
-                    return os.path.dirname(item.input_path)
+        def get_output_name_for_group(group_name):
+            if group_name in self.group_custom_names:
+                return self.group_custom_names[group_name]
+            if self.naming_rules.enabled:
+                idx = group_keys.index(group_name) if group_name in group_keys else 0
+                return self.naming_rules.apply(group_name, idx)
+            else:
+                return group_name
 
-            groups = {}
-            for item in checked_items:
-                gk = item.preview_extra.get("group_key", "")
-                if gk:
-                    groups.setdefault(gk, []).append(item)
-            group_keys = sorted(groups.keys(), key=lambda k: checked_items.index(groups[k][0]))
+        self.append_log("开始批处理…")
+        self.progress.setValue(0)
+        self.btn_start.setEnabled(False)
+        self.btn_stop_task.setEnabled(True)
+        self.is_processing = True
 
-            def get_output_name_for_group(group_name):
-                if group_name in self.group_custom_names:
-                    return self.group_custom_names[group_name]
-                if self.naming_rules.enabled:
-                    idx = group_keys.index(group_name) if group_name in group_keys else 0
-                    return self.naming_rules.apply(group_name, idx)
-                else:
-                    return group_name
-
-            self.append_log("开始批处理…")
-            self.progress.setValue(0)
-            self.btn_start.setEnabled(False)
-            self.btn_stop_task.setEnabled(True)
-            self.is_processing = True
-
-            self.batch_thread = BatchThread(
-                checked_items,
-                settings,
-                get_output_dir,
-                get_output_name_for_group,
-                module
-            )
-            self.batch_thread.log_signal.connect(self.append_log)
-            self.batch_thread.progress_signal.connect(self.on_progress)
-
-            def on_batch_finished(output_files):
-                self.btn_start.setEnabled(True)
-                self.btn_stop_task.setEnabled(False)
-                self.is_processing = False
-                self._delete_source_files(checked_items)
-                if self.replace_check.isChecked():
-                    self._replace_items_with_outputs(checked_items, output_files)
-                else:
-                    self.refresh_feature_preview()
-                self.refresh_table()
-                self.progress.setValue(100)
-                total = len(checked_items)
-                self.progress.setFormat(f"{total}/{total}")
-                self.replace_check.setChecked(False)
-                self.delete_source_check.setChecked(False)
-                self.batch_thread.deleteLater()
-                self.batch_thread = None
-
-            self.batch_thread.finished.connect(on_batch_finished)
-            self.batch_thread.start()
-            return
+        self.batch_thread = BatchThread(
+            checked_items,
+            settings,
+            get_output_dir,
+            get_output_name_for_group,
+            module
+        )
+        self.batch_thread.log_signal.connect(self.append_log)
+        self.batch_thread.progress_signal.connect(self.on_progress)
 
         def on_batch_finished(output_files):
             self.btn_start.setEnabled(True)
@@ -1219,15 +1217,39 @@ class BaseMainWindow(UIMixin, QMainWindow):
             self.replace_check.setChecked(False)
             self.delete_source_check.setChecked(False)
             self.batch_thread.deleteLater()
-            self.batch_thread = None
-            return
+            self.batch_thread = None                 
+
+        self.batch_thread.finished.connect(on_batch_finished)
+        self.batch_thread.start()
+
+    def _run_single_task(self, checked_items):
+        """执行单任务"""
+        idx = self.feature_box.currentIndex()
+        module = self.feature_modules[idx]["module"]
+        panel = self.feature_panels[idx]
+        module_name = module.__name__.split('.')[-1]
 
         if module_name == "pdf_organize":
-            self.append_log("❌ 错误：组织PDF页面功能不支持单任务模式")
+            self.append_log("❌ 错误：组织 PDF 页面功能不支持单任务模式")
             self.btn_start.setEnabled(True)
             self.btn_stop_task.setEnabled(False)
             self.is_processing = False
             return
+        
+        if self.feature_modules[idx]["name"] == "压缩 PDF 文件":
+            from features.pdf_compress import ensure_ghostscript
+            if not ensure_ghostscript(self):
+                self.append_log("❌ Ghostscript 未配置，压缩任务取消")
+                return        
+
+        settings = module.collect_settings(panel)
+        custom_names = []
+        if self.naming_rules.enabled:
+            for rule in self.naming_rules.rules:
+                if rule.rule_type == "user_input" and rule.enabled:
+                    custom_names = rule.params.get("names", [])
+                    break
+        settings["custom_names"] = custom_names
 
         one_to_many = ["img_split", "pdf_convert"]
         if module_name in one_to_many:
@@ -1276,9 +1298,25 @@ class BaseMainWindow(UIMixin, QMainWindow):
         self.current_thread.started.connect(
             lambda: self.current_worker.run(checked_items, task_func)
         )
-        self.current_thread.start()
+        self.current_thread.start()            
+
+    def start_task(self):
+        """启动任务"""
+        if not self._validate_items():
+            return
+
+        checked_items = [item for item in self.preview_mgr.items if item.checked]
+        if not checked_items:
+            QMessageBox.warning(self, "提示", "没有勾选任何文件")
+            return
+
+        if self._is_batch_module():
+            self._run_batch_task(checked_items)
+        else:
+            self._run_single_task(checked_items)
 
     def _stop_task(self):
+        """请求停止当前任务"""
         try:
             if not self.current_worker and not self.batch_thread:
                 return
@@ -1297,6 +1335,7 @@ class BaseMainWindow(UIMixin, QMainWindow):
             self.append_log(traceback.format_exc())
 
     def _delete_source_files(self, items):
+        """删除源文件"""
         if not self.delete_source_check.isChecked():
             return
         deleted_count = 0
@@ -1311,59 +1350,71 @@ class BaseMainWindow(UIMixin, QMainWindow):
             self.append_log(f"已删除 {deleted_count} 个源文件")
 
     def _replace_items_with_outputs(self, items, output_files):
+        """用输出文件替换列表中的源文件"""
         new_items = []
         if output_files is None:
             for item in items:
                 if hasattr(item, "output_paths") and item.output_paths:
                     for out_path in item.output_paths:
                         if os.path.exists(out_path):
-                            new_item = FileItem(
-                                input_path=out_path,
-                                output_name=os.path.basename(out_path),
-                                output_dir=os.path.dirname(out_path),
-                                status="待处理",
-                                checked=True
-                            )
-                            new_items.append(new_item)
+                            new_items.append(self._create_file_item_from_path(out_path))
                 else:
                     out_path = item.full_output_path()
                     if os.path.exists(out_path):
-                        new_item = FileItem(
-                            input_path=out_path,
-                            output_name=os.path.basename(out_path),
-                            output_dir=os.path.dirname(out_path),
-                            status="待处理",
-                            checked=True
-                        )
-                        new_items.append(new_item)
+                        new_items.append(self._create_file_item_from_path(out_path))
             self._replace_items_in_list(items, new_items)
             return
 
         if output_files:
             for out_path in output_files:
                 if os.path.exists(out_path):
-                    new_item = FileItem(
-                        input_path=out_path,
-                        output_name=os.path.basename(out_path),
-                        output_dir=os.path.dirname(out_path),
-                        status="待处理",
-                        checked=True
-                    )
-                    new_items.append(new_item)
+                    new_items.append(self._create_file_item_from_path(out_path))
             self._replace_items_in_list(items, new_items)
         else:
             self.refresh_feature_preview()
 
     def _replace_items_in_list(self, old_items, new_items):
+        """执行替换操作"""
         for item in old_items:
             if item in self.preview_mgr.items:
                 self.preview_mgr.items.remove(item)
         self.preview_mgr.items.extend(new_items)
         self.sort_reverse = False
-        self.refresh_feature_preview()
+        self._refresh_table_preserve_scroll(self.refresh_feature_preview)
         self.append_log(f"已替换为输出文件（{len(new_items)} 个文件）")
 
+    def _create_file_item_from_path(self, file_path: str) -> FileItem:
+        """从文件路径创建 FileItem 对象（用于替换输出文件）"""
+        return FileItem(
+            input_path=file_path,
+            output_name=os.path.basename(file_path),
+            output_dir=os.path.dirname(file_path),
+            status="待处理",
+            checked=True
+        )
+
+    def _refresh_table_preserve_scroll(self, refresh_func=None):
+        """刷新表格并保持当前滚动位置和选中行"""
+        current_row = self.table.currentRow()
+        scroll_pos = self.table.verticalScrollBar().value()
+
+        if refresh_func:
+            refresh_func()
+        else:
+            self.refresh_table()
+
+        if current_row >= 0 and current_row < self.table.rowCount():
+            self.table.selectRow(current_row)
+            from PySide6.QtCore import QTimer
+            QTimer.singleShot(10, lambda: self.table.scrollToItem(
+                self.table.item(current_row, 0),
+                QAbstractItemView.PositionAtCenter
+            ))
+        else:
+            self.table.verticalScrollBar().setValue(scroll_pos)
+
     def show_help(self):
+        """显示帮助对话框"""
         help_text = self._get_help_text()
         dialog = QDialog(self)
         dialog.setWindowTitle("功能说明")
@@ -1389,11 +1440,13 @@ class BaseMainWindow(UIMixin, QMainWindow):
         dialog.exec()
 
     def _get_help_text(self):
+        """获取帮助文本"""
         if self._help_text:
             return self._help_text
         return "请重写此方法以显示具体的帮助内容。"
 
     def keyPressEvent(self, event):
+        """键盘事件"""
         if event.key() == Qt.Key_Delete:
             if self.table.hasFocus():
                 self.remove_selected_rows()
@@ -1402,6 +1455,7 @@ class BaseMainWindow(UIMixin, QMainWindow):
         super().keyPressEvent(event)
 
     def closeEvent(self, event):
+        """窗口关闭事件"""
         if self.current_thread and self.current_thread.isRunning():
             reply = QMessageBox.question(
                 self, "确认退出",
@@ -1434,18 +1488,21 @@ class BaseMainWindow(UIMixin, QMainWindow):
             event.accept()
 
     def append_log(self, msg: str):
+        """添加单条日志"""
         self.log_box.append(msg)
         self.log_box.verticalScrollBar().setValue(
             self.log_box.verticalScrollBar().maximum()
         )
 
     def append_log_batch(self, messages: list):
+        """批量添加日志"""
         self.log_box.append("\n".join(messages))
         self.log_box.verticalScrollBar().setValue(
             self.log_box.verticalScrollBar().maximum()
         )
 
     def on_progress(self, current: int, total: int):
+        """更新进度条"""
         now = time.time()
         if now - self.last_progress_update >= self.progress_update_interval:
             self.progress.setValue(int(current / total * 100))
@@ -1455,6 +1512,7 @@ class BaseMainWindow(UIMixin, QMainWindow):
 
 class NamingRulesDialog(QDialog):
     def __init__(self, rules: NamingRules, parent=None):
+        """初始化命名规则编辑器对话框"""
         super().__init__(parent)
         self.rules = rules
         self.selected_index = -1
@@ -1684,6 +1742,7 @@ class NamingRulesDialog(QDialog):
             self.config_stack.setCurrentIndex(0) 
 
     def _refresh_table(self):
+        """刷新规则列表表格"""
         self.rule_table.blockSignals(True)
         self.rule_table.setRowCount(0)
         for i, rule in enumerate(self.rules.rules):
@@ -1715,6 +1774,7 @@ class NamingRulesDialog(QDialog):
         self.rule_table.blockSignals(False)
 
     def _on_checkbox_toggled(self, row, state):
+        """规则启用/禁用复选框切换"""
         if row < 0 or row >= len(self.rules.rules):
             return
         rule = self.rules.rules[row]
@@ -1724,7 +1784,8 @@ class NamingRulesDialog(QDialog):
             item.setForeground(QColor(0, 0, 0) if rule.enabled else QColor(150, 150, 150))
         self._update_preview()
 
-    def _on_rule_selected(self, item):
+    def _on_rule_selected(self, _item):
+        """选择规则时加载对应配置面板"""
         row = self.rule_table.currentRow()
         if row < 0 or row >= len(self.rules.rules):
             return
@@ -1772,15 +1833,18 @@ class NamingRulesDialog(QDialog):
         self._update_preview()
 
     def _update_insert_visibility(self):
+        """根据插入位置模式显示/隐藏相应控件"""
         self.pos_container.setVisible(self.rb_position.isChecked())
         self.after_edit.setVisible(self.rb_after.isChecked())
         self.before_edit.setVisible(self.rb_before.isChecked())
 
     def _on_position_toggled(self):
+        """位置单选按钮切换时更新可见性并触发配置变更"""
         self._update_insert_visibility()
         self._on_config_changed()
 
     def _get_needed_count(self) -> int:
+        """计算当前功能需要的文件名数量"""
         parent = self.parent()
         if not parent or not hasattr(parent, 'preview_mgr'):
             return 0
@@ -1876,6 +1940,7 @@ class NamingRulesDialog(QDialog):
         return len(checked_items)
 
     def _update_user_count(self):
+        """更新用户输入计数提示"""
         names = [line.strip() for line in self.user_text.toPlainText().splitlines() if line.strip()]
         needed = self._get_needed_count()
         count = len(names)
@@ -1887,12 +1952,14 @@ class NamingRulesDialog(QDialog):
             self.user_count.setStyleSheet("color: #666;")
 
     def _on_user_text_changed(self):
+        """用户输入文本变更时更新计数并触发配置变更"""
         if self._loading_rule:
             return
         self._update_user_count()
         self._on_config_changed()
 
     def _on_config_changed(self):
+        """配置变更时更新当前规则的参数和预览"""
         if self._loading_rule or self.selected_index < 0 or self.selected_index >= len(self.rules.rules):
             return
         rule = self.rules.rules[self.selected_index]
@@ -1929,6 +1996,7 @@ class NamingRulesDialog(QDialog):
         self._update_preview()
 
     def _update_preview(self):
+        """更新预览显示"""
         if self.rules.enabled:
             result = self.rules.get_preview("示例文件", 0)
             self.preview_display.setText(f"示例文件 → {result}")
@@ -1936,6 +2004,7 @@ class NamingRulesDialog(QDialog):
             self.preview_display.setText("保留原名：示例文件")
 
     def _add_rule(self, rule_type):
+        """添加一条新规则"""
         if rule_type == "insert":
             self.rules.add_rule("insert", {
                 "text": "", "mode": "prefix", "position": 1,
@@ -1952,6 +2021,7 @@ class NamingRulesDialog(QDialog):
         self._update_preview()
 
     def _delete_selected(self):
+        """删除选中的规则"""
         if self.selected_index < 0 or self.selected_index >= len(self.rules.rules):
             return
         self.rules.remove_rule(self.selected_index)
@@ -1968,6 +2038,7 @@ class NamingRulesDialog(QDialog):
             self.config_stack.setCurrentIndex(0)
 
     def _move_up(self):
+        """上移选中的规则"""
         if self.selected_index <= 0:
             return
         self.rules.move_rule(self.selected_index, self.selected_index - 1)
@@ -1977,6 +2048,7 @@ class NamingRulesDialog(QDialog):
         self._on_rule_selected(self.rule_table.item(self.selected_index, 2))
 
     def _move_down(self):
+        """下移选中的规则"""
         if self.selected_index >= len(self.rules.rules) - 1:
             return
         self.rules.move_rule(self.selected_index, self.selected_index + 1)
@@ -1986,8 +2058,10 @@ class NamingRulesDialog(QDialog):
         self._on_rule_selected(self.rule_table.item(self.selected_index, 2))
 
     def _on_accept(self):
+        """确定按钮"""
         self.rules.enabled = True
         self.accept()
 
     def get_rules(self) -> NamingRules:
+        """返回编辑后的规则对象"""
         return self.rules

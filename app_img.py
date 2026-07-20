@@ -1,7 +1,6 @@
 # Copyright (C) 2026 张小鱼
 # SPDX-License-Identifier: AGPL-3.0-or-later
 
-import os
 import sys
 from PySide6.QtGui import QIcon, QFont
 from PySide6.QtWidgets import QApplication

@@ -3,13 +3,12 @@
 
 import os
 import shutil
-from PySide6.QtCore import Signal, Qt
+from PySide6.QtCore import Signal
 from PySide6.QtWidgets import (
-    QWidget, QVBoxLayout, QHBoxLayout, QLabel, QComboBox, QSpinBox, 
-    QCheckBox
+    QWidget, QVBoxLayout, QHBoxLayout, QLabel, QComboBox, QSpinBox,
+    QCheckBox, QSizePolicy
 )
 from core.utils import ensure_image_mode
-
 
 try:
     from PIL import Image
@@ -21,44 +20,47 @@ class ConvertPanel(QWidget):
     changed = Signal()
 
     def __init__(self):
+        """初始化设置面板"""
         super().__init__()
         layout = QVBoxLayout(self)
         layout.setSpacing(8)
 
-        fmt_row = QHBoxLayout()
-        fmt_row.addWidget(QLabel("目标格式:"))
         self.format_combo = QComboBox()
         self.format_combo.addItems(["PNG", "JPG", "WEBP", "BMP", "TIFF", "GIF", "ICO"])
-        self.format_combo.currentIndexChanged.connect(self._on_format_changed)
-        fmt_row.addWidget(self.format_combo, 1)
-
-        self.bg_check = QCheckBox("填充白色背景")
-        self.bg_check.setChecked(True)
-        fmt_row.addWidget(self.bg_check)
-
-        layout.addLayout(fmt_row)
-
-        quality_row = QHBoxLayout()
-        self.quality_label = QLabel("压缩质量:")
-        quality_row.addWidget(self.quality_label)
+        self.format_combo.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
+        self.fill_check = QCheckBox("填充白色背景")
+        self.fill_check.setChecked(True)
+        self.fill_check.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Fixed)
+        self.quality_label = QLabel("图片质量:")
         self.quality_spin = QSpinBox()
         self.quality_spin.setRange(1, 100)
         self.quality_spin.setValue(100)
-        quality_row.addWidget(self.quality_spin, 1)
-        layout.addLayout(quality_row)
+        self.quality_spin.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
+
+        row_param1 = QHBoxLayout()
+        row_param1.addWidget(QLabel("目标格式:"))
+        row_param1.addWidget(self.format_combo, 1)
+        row_param1.addWidget(self.fill_check)
+        row_param2 = QHBoxLayout()
+        row_param2.addWidget(self.quality_label)
+        row_param2.addWidget(self.quality_spin, 1)        
+        layout.addLayout(row_param1)
+        layout.addLayout(row_param2)
 
         layout.addStretch()
 
-        self._on_format_changed()
-
+        self.format_combo.currentIndexChanged.connect(self._on_format_changed)
         self.format_combo.currentIndexChanged.connect(self.changed)
         self.quality_spin.valueChanged.connect(self.changed)
-        self.bg_check.stateChanged.connect(self.changed)
+        self.fill_check.stateChanged.connect(self.changed)
 
+        self._on_format_changed()
+        
     def _on_format_changed(self):
+        """目标格式切换时更新界面控件可见性"""
         fmt = self.format_combo.currentText()
 
-        self.bg_check.setVisible(fmt in ("JPG", "BMP", "ICO"))
+        self.fill_check.setVisible(fmt in ("JPG", "BMP", "ICO"))
 
         show_quality = fmt in ("PNG", "JPG", "WEBP")
         self.quality_label.setVisible(show_quality)
@@ -66,11 +68,11 @@ class ConvertPanel(QWidget):
 
         if show_quality:
             if fmt == "PNG":
-                self.quality_label.setText("压缩级别:")
-                self.quality_spin.setSuffix("（越小越清晰）")
-                self.quality_spin.setValue(1)
+                self.quality_label.setText("图片质量:")
+                self.quality_spin.setSuffix("（100=无压缩，1=极限压缩）")
+                self.quality_spin.setValue(100)
             else:
-                self.quality_label.setText("画质质量:")
+                self.quality_label.setText("图片质量:")
                 self.quality_spin.setSuffix(" %（越大越清晰）")
                 self.quality_spin.setValue(100)
         else:
@@ -80,36 +82,38 @@ class ConvertPanel(QWidget):
 
 
 def build_panel() -> QWidget:
+    """构建面板实例""" 
     return ConvertPanel()
 
 
 def collect_settings(panel: ConvertPanel) -> dict:
+    """收集面板设置"""
     return {
         "target_format": panel.format_combo.currentText().lower(),
         "quality": panel.quality_spin.value(),
-        "fill_white_bg": panel.bg_check.isChecked(),
+        "fill_white_bg": panel.fill_check.isChecked(),
     }
 
 
 def prepare_preview(items, settings: dict):
+    """生成预览信息"""
     fmt = settings.get("target_format", "png").lower()
-    quality = settings.get("quality", 90)
-    fmt_display = fmt.upper()
-    
     for it in items:
-        base = os.path.splitext(it.output_name)[0]
-        it.output_name = base + "." + fmt
-        
-        if fmt_display == "PNG":
-            suffix = f"压缩级别:{quality}"
-        elif fmt_display in ("JPG", "WEBP"):
-            suffix = f"画质:{quality}%"
+        quality = settings.get("quality", 90)
+        fill_bg = settings.get("fill_white_bg", True)
+        if fmt in ("png", "jpg", "webp"):
+            if fmt == "png":
+                quality_desc = f"压缩等级{int((100-quality)/100*9)}"
+            else:
+                quality_desc = f"质量{quality}%"
         else:
-            suffix = "无损"
-        it.preview_extra = {"A": f"→ {fmt_display}（{suffix}）"}
+            quality_desc = "无损"
+        bg_desc = "白底" if fill_bg else "保留透明"
+        it.preview_extra = {"A": f"→ {fmt.upper()}（{quality_desc}，{bg_desc}）"}
 
 
 def run_task(file_item, settings: dict):
+    """执行单个图片格式转换任务"""
     if Image is None:
         raise RuntimeError("缺少 Pillow 库，请安装: pip install Pillow")
 
@@ -121,10 +125,7 @@ def run_task(file_item, settings: dict):
     out_dir = file_item.output_dir or os.path.dirname(src)
     os.makedirs(out_dir, exist_ok=True)
 
-    base_name = os.path.splitext(file_item.output_name)[0]
-    final_name = f"{base_name}.{target_fmt}"
-    file_item.output_name = final_name
-    out_path = os.path.join(out_dir, final_name)
+    out_path = os.path.join(out_dir, file_item.output_name)
 
     src_ext = os.path.splitext(src)[1][1:].lower()
     if src_ext == target_fmt and quality >= 90 and target_fmt not in ("gif", "ico", "bmp", "tiff"):

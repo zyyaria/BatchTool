@@ -7,14 +7,14 @@ import json
 from typing import List
 
 
-PDF_VERSION = "1.7.1"
-IMG_VERSION = "1.6.1"
-VIDEO_VERSION = "1.3.1"
-BATCH_VERSION = "1.3.1"
+PDF_VERSION = "1.7.2"
+IMG_VERSION = "1.7.0"
+VIDEO_VERSION = "1.3.2"
+BATCH_VERSION = "1.3.2"
 
 
 def resource_path(relative_path):
-    """获取资源文件的绝对路径（支持 PyInstaller 打包后）"""
+    """获取资源文件的绝对路径"""
     try:
         base_path = sys._MEIPASS
     except AttributeError:
@@ -71,6 +71,7 @@ CONFIG_FILE = os.path.join(os.path.dirname(__file__), "..", "app_config.json")
 
 
 def load_app_config(key: str, default: str = "") -> str:
+    """从应用配置文件加载指定键的值"""
     if os.path.exists(CONFIG_FILE):
         try:
             with open(CONFIG_FILE, "r", encoding="utf-8") as f:
@@ -82,6 +83,7 @@ def load_app_config(key: str, default: str = "") -> str:
 
 
 def save_app_config(key: str, value: str) -> bool:
+    """将键值保存到应用配置文件"""
     try:
         data = {}
         if os.path.exists(CONFIG_FILE):
@@ -96,6 +98,7 @@ def save_app_config(key: str, value: str) -> bool:
 
 
 def ensure_image_mode(im, target_format: str, fill_white: bool = True):
+    """将 PIL Image 转换为目标格式所需的色彩模式"""
     from PIL import Image
     fmt = target_format.lower() if target_format else ""
     if fmt in ("jpg", "jpeg", "bmp", "ico"):
@@ -121,18 +124,14 @@ def ensure_image_mode(im, target_format: str, fill_white: bool = True):
 
 
 class NamingRule:
-    """单条命名规则"""
-    
     def __init__(self, rule_type: str, params: dict = None, enabled: bool = True):
-        """
-        rule_type: "insert" 或 "user_input"
-        """
+        """初始化命名规则"""
         self.rule_type = rule_type
         self.params = params or {}
         self.enabled = enabled
     
     def get_description(self) -> str:
-        """生成规则简要描述，显示在列表中"""
+        """生成规则的简要描述"""
         if self.rule_type == "insert":
             text = self.params.get("text", "")
             mode = self.params.get("mode", "prefix")
@@ -167,7 +166,7 @@ class NamingRule:
         return "未知规则"
     
     def apply(self, name: str, index: int = 0) -> str:
-        """应用规则到文件名"""
+        """将规则应用到文件名，index 用于用户输入规则时的索引"""
         if not self.enabled:
             return name
         
@@ -219,6 +218,7 @@ class NamingRule:
         return result
     
     def to_dict(self) -> dict:
+        """序列化为字典"""
         return {
             "rule_type": self.rule_type,
             "params": self.params,
@@ -227,6 +227,7 @@ class NamingRule:
     
     @classmethod
     def from_dict(cls, data: dict):
+        """从字典反序列化"""
         return cls(
             rule_type=data.get("rule_type", "insert"),
             params=data.get("params", {}),
@@ -235,13 +236,13 @@ class NamingRule:
 
 
 class NamingRules:
-    """规则集合"""
-    
     def __init__(self):
+        """初始化命名规则集合"""
         self.enabled = False
         self.rules: List[NamingRule] = []
     
     def apply(self, base_name: str, index: int = 0) -> str:
+        """按顺序应用所有规则到基础文件名"""
         if not self.enabled:
             return base_name
         result = base_name
@@ -250,26 +251,32 @@ class NamingRules:
         return result
     
     def apply_to_many(self, base_name: str, count: int) -> List[str]:
+        """为 count 个文件生成对应的命名列表"""
         return [self.apply(base_name, i) for i in range(count)]
     
     def get_preview(self, base_name: str = "示例", index: int = 0) -> str:
+        """返回预览结果"""
         if not self.enabled:
             return "保留原名"
         return self.apply(base_name, index)
     
     def add_rule(self, rule_type: str, params: dict = None, enabled: bool = True):
+        """添加一条规则"""
         self.rules.append(NamingRule(rule_type, params, enabled))
     
     def remove_rule(self, index: int):
+        """移除指定索引的规则"""
         if 0 <= index < len(self.rules):
             self.rules.pop(index)
     
     def move_rule(self, from_idx: int, to_idx: int):
+        """移动规则顺序"""
         if 0 <= from_idx < len(self.rules) and 0 <= to_idx < len(self.rules):
             rule = self.rules.pop(from_idx)
             self.rules.insert(to_idx, rule)
     
     def to_dict(self) -> dict:
+        """序列化为字典"""
         return {
             "enabled": self.enabled,
             "rules": [r.to_dict() for r in self.rules]
@@ -277,6 +284,7 @@ class NamingRules:
     
     @classmethod
     def from_dict(cls, data: dict):
+        """从字典反序列化"""
         rules = cls()
         rules.enabled = data.get("enabled", False)
         for r_data in data.get("rules", []):
@@ -308,12 +316,12 @@ def find_ffmpeg():
 
 
 def get_ffmpeg_path():
-    """获取 FFmpeg 路径，如果未找到则返回 None"""
+    """获取 FFmpeg 路径，返回 None 表示未找到"""
     return find_ffmpeg()
 
 
 def set_ffmpeg_path(path: str) -> bool:
-    """手动设置 FFmpeg 路径并保存"""
+    """手动设置 FFmpeg 路径并保存到配置，返回是否成功"""
     if not os.path.exists(path):
         return False
     try:
@@ -323,3 +331,16 @@ def set_ffmpeg_path(path: str) -> bool:
         return True
     except:
         return False
+    
+
+def get_unique_file_path(directory: str, base_name: str, ext: str) -> str:
+    """获取唯一的文件路径"""
+    out_path = os.path.join(directory, f"{base_name}{ext}")
+    if not os.path.exists(out_path):
+        return out_path
+    counter = 1
+    while True:
+        new_path = os.path.join(directory, f"{base_name}_{counter}{ext}")
+        if not os.path.exists(new_path):
+            return new_path
+        counter += 1

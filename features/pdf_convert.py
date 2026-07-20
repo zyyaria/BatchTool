@@ -7,15 +7,12 @@ import sys
 import shutil
 import subprocess
 import urllib.parse
-from dataclasses import dataclass
-from typing import List
 from PySide6.QtCore import Signal
 from PySide6.QtWidgets import (
-    QWidget, QVBoxLayout, QHBoxLayout, QLabel, QComboBox, QSpinBox, 
-    QLineEdit, QCheckBox
+    QWidget, QVBoxLayout, QHBoxLayout, QLabel, QComboBox, QSpinBox,
+    QLineEdit, QCheckBox, QSizePolicy
 )
 from core.utils import parse_page_range
-
 
 try:
     import fitz
@@ -55,131 +52,134 @@ class ConvertPanel(QWidget):
     changed = Signal()
 
     def __init__(self):
+        """初始化设置面板"""
         super().__init__()
-        v = QVBoxLayout(self)
-        v.setSpacing(8)
+        layout = QVBoxLayout(self)
+        layout.setSpacing(8)
 
-        mode_row = QHBoxLayout()
-        mode_row.addWidget(QLabel("转换方向："))
-        self.mode = QComboBox()
-        self.mode.addItems(["转换为PDF", "PDF转换至", "Office文档互转"])
-        mode_row.addWidget(self.mode, 1)
-        v.addLayout(mode_row)
+        self.convert_combo = QComboBox()
+        self.convert_combo.addItems(["转换为 PDF", "PDF 转换至", "Office 文档互转"])
+        self.convert_combo.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
+        self.format_combo = QComboBox()
+        self.format_combo.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
+        self.dpi_label = QLabel("DPI:")
+        self.dpi_spin = QSpinBox()
+        self.dpi_spin.setRange(72, 600)
+        self.dpi_spin.setValue(72)
+        self.dpi_spin.setSuffix(" ppi")
+        self.dpi_spin.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
+        self.xlsx_merge_check = QCheckBox("合并所有表")
+        self.xlsx_merge_check.setChecked(False)
+        self.xlsx_merge_check.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Fixed)
+        self.range_widget = QWidget()
+        self.range_edit = QLineEdit()
+        self.range_edit.setPlaceholderText("1-3,5,8-（留空=全部）")
+        self.range_edit.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
 
-        target_row = QHBoxLayout()
-        target_row.addWidget(QLabel("目标格式："))
-        self.target = QComboBox()
+        row_param1 = QHBoxLayout()
+        row_param1.addWidget(QLabel("转换方向:"))
+        row_param1.addWidget(self.convert_combo, 1)
+        row_param2 = QHBoxLayout()
+        row_param2.addWidget(QLabel("目标格式:"))
+        row_param2.addWidget(self.format_combo, 1)
+        row_param2.addWidget(self.dpi_label)
+        row_param2.addWidget(self.dpi_spin, 1)
+        row_param2.addWidget(self.xlsx_merge_check)
+        row_param3 = QHBoxLayout(self.range_widget)
+        row_param3.setContentsMargins(0, 0, 0, 0)
+        row_param3.addWidget(QLabel("页面范围:"))
+        row_param3.addWidget(self.range_edit, 1)
+        layout.addLayout(row_param1)
+        layout.addLayout(row_param2)
+        layout.addWidget(self.range_widget)
+
+        layout.addStretch()
+
+        self.convert_combo.currentIndexChanged.connect(self._on_convert_combo_changed)
+        self.format_combo.currentIndexChanged.connect(self._refresh_visibility)
+        self.convert_combo.currentIndexChanged.connect(self.changed)
+        self.format_combo.currentIndexChanged.connect(self.changed)
+        self.dpi_spin.valueChanged.connect(self.changed)
+        self.range_edit.textChanged.connect(self.changed)
+        self.xlsx_merge_check.stateChanged.connect(self.changed)
+
         self._refresh_targets_for_mode(0)
-        target_row.addWidget(self.target, 1)
-
-        self.dpi_label = QLabel("图片DPI：")
-        self.dpi = QSpinBox()
-        self.dpi.setRange(72, 600)
-        self.dpi.setValue(72)
-        self.dpi.setFixedWidth(70)
-        target_row.addWidget(self.dpi_label)
-        target_row.addWidget(self.dpi)
-
-        self.xlsx_merge = QCheckBox("合并所有表")
-        target_row.addWidget(self.xlsx_merge)
-
-        v.addLayout(target_row)
-
-        self.page_widget = QWidget()
-        page_row = QHBoxLayout(self.page_widget)
-        page_row.setContentsMargins(0, 0, 0, 0)
-        page_row.addWidget(QLabel("页码范围："))
-        self.page_range = QLineEdit()
-        self.page_range.setPlaceholderText("1-3,5,8-（留空=全部）")
-        page_row.addWidget(self.page_range, 1)
-        v.addWidget(self.page_widget)
-
-        v.addStretch()
-
-        self.dpi_label.setVisible(False)
-        self.dpi.setVisible(False)
-        self.page_widget.setVisible(False)
-        self.xlsx_merge.setVisible(False)
-
-        self.mode.currentIndexChanged.connect(self._on_mode_changed)
-        self.target.currentIndexChanged.connect(self._refresh_visibility)
-        self.mode.currentIndexChanged.connect(self.changed)
-        self.target.currentIndexChanged.connect(self.changed)
-        self.dpi.valueChanged.connect(self.changed)
-        self.page_range.textChanged.connect(self.changed)
-        self.xlsx_merge.stateChanged.connect(self.changed)
-
+        self._refresh_visibility()
 
     def _refresh_targets_for_mode(self, mode_idx: int):
-        self.target.clear()
+        """根据转换方向更新目标格式下拉列表"""
+        self.format_combo.clear()
         if mode_idx == 0:
-            self.target.addItems(["PDF"])
+            self.format_combo.addItems(["PDF"])
         elif mode_idx == 1:
-            self.target.addItems(["DOCX", "XLSX", "PPTX", "JPG", "PNG", "TXT", "HTML"])
+            self.format_combo.addItems(["DOCX", "XLSX", "PPTX", "JPG", "PNG", "TXT", "HTML"])
         else:
-            self.target.addItems(["DOCX", "DOC", "XLSX", "XLS", "PPTX", "PPT"])
+            self.format_combo.addItems(["DOCX", "DOC", "XLSX", "XLS", "PPTX", "PPT"])
 
-
-    def _on_mode_changed(self, idx: int):
+    def _on_convert_combo_changed(self, idx: int):
+        """转换方向切换时更新目标格式并刷新可见性"""
         self._refresh_targets_for_mode(idx)
         self._refresh_visibility()
         self.changed.emit()
 
-
     def _refresh_visibility(self):
-        mode = self.mode.currentIndex()
-        tgt = self.target.currentText().lower()
+        """根据当前设置显示/隐藏 DPI、页面范围、Excel 合并选项"""
+        mode = self.convert_combo.currentIndex()
+        tgt = self.format_combo.currentText().lower()
 
         is_from_pdf = (mode == 1)
         is_jpg_png = is_from_pdf and tgt in ("jpg", "png")
         is_xlsx = is_from_pdf and tgt == "xlsx"
 
         self.dpi_label.setVisible(is_jpg_png)
-        self.dpi.setVisible(is_jpg_png)
-        self.page_widget.setVisible(is_from_pdf)
-        self.xlsx_merge.setVisible(is_xlsx)
+        self.dpi_spin.setVisible(is_jpg_png)
+        self.range_widget.setVisible(is_from_pdf)
+        self.xlsx_merge_check.setVisible(is_xlsx)
+
 
 def build_panel() -> QWidget:
+    """构建面板实例"""
     return ConvertPanel()
 
 
 def collect_settings(panel: ConvertPanel) -> dict:
-    mode = panel.mode.currentIndex()
+    """收集面板设置"""
+    mode = panel.convert_combo.currentIndex()
     direction_map = {0: "to_pdf", 1: "from_pdf", 2: "office_convert"}
     return {
         "direction": direction_map.get(mode, "to_pdf"),
-        "target": panel.target.currentText().lower(),
-        "dpi": panel.dpi.value(),
-        "page_range": panel.page_range.text().strip(),
-        "xlsx_merge_to_one_sheet": panel.xlsx_merge.isChecked(),
+        "target": panel.format_combo.currentText().lower(),
+        "dpi": panel.dpi_spin.value(),
+        "range_edit": panel.range_edit.text().strip(),
+        "xlsx_merge_check_to_one_sheet": panel.xlsx_merge_check.isChecked(),
     }
 
 
 def prepare_preview(items, settings):
+    """生成预览信息"""
     direction = settings.get("direction", "to_pdf")
     tgt = settings.get("target", "pdf")
-    dpi = settings.get("dpi", 72)
-    pg = settings.get("page_range", "")
-    tgt_lower = tgt.lower()
-
     for it in items:
-        base = os.path.splitext(it.output_name)[0]
-        it.output_name = base + "." + tgt_lower
-
+        dpi = settings.get("dpi", 72)
+        pg = settings.get("range_edit", "")
+        xlsx_merge_check = settings.get("xlsx_merge_check_to_one_sheet", False)
         if direction == "to_pdf":
-            it.preview_extra = {"A": "Office/图片 → PDF"}
+            hint = "Office/图片 → PDF"
         elif direction == "office_convert":
-            it.preview_extra = {"A": f"Office → {tgt.upper()}"}
+            hint = f"Office → {tgt.upper()}"
         else:
             hint = f"PDF → {tgt.upper()}"
-            if tgt.upper() in ("JPG", "PNG"):
-                hint += f"（DPI={dpi}）"
+            if tgt in ("jpg", "png"):
+                hint += f"，DPI={dpi}"
                 if pg:
-                    hint += f"；页码: {pg}"
-            it.preview_extra = {"A": hint}
+                    hint += f"，页码{pg}"
+            elif tgt == "xlsx" and xlsx_merge_check:
+                hint += "，合并为单表"
+        it.preview_extra = {"A": hint}
 
 
 def _replace_ext_keep_basename(name: str, new_ext: str) -> str:
+    """替换文件扩展名，保留基础名称"""
     base, _ = os.path.splitext(name)
     if not new_ext.startswith("."):
         new_ext = "." + new_ext
@@ -187,23 +187,28 @@ def _replace_ext_keep_basename(name: str, new_ext: str) -> str:
 
 
 def _safe_ensure_dir(path: str):
+    """确保目录存在"""
     os.makedirs(path, exist_ok=True)
 
 
 def _is_image_ext(ext: str) -> bool:
+    """判断是否为图片扩展名"""
     return ext.lower() in (".jpg", ".jpeg", ".png", ".bmp", ".webp", ".tif", ".tiff")
 
 
 def _is_office_ext(ext: str) -> bool:
+    """判断是否为 Office 文档扩展名"""
     return ext.lower() in (".doc", ".docx", ".xls", ".xlsx", ".ppt", ".pptx")
 
 
 def _which(cmd: str):
+    """查找可执行文件"""
     from shutil import which
     return which(cmd)
 
 
 def _office_to_pdf_windows(input_path: str, out_path: str):
+    """使用 Microsoft Office COM 将 Office 文档转换为 PDF"""
     import pythoncom
     import comtypes.client
 
@@ -265,6 +270,7 @@ def _office_to_pdf_windows(input_path: str, out_path: str):
 
 
 def _office_to_pdf_libreoffice(input_path: str, out_path: str):
+    """使用 LibreOffice 将文档转换为 PDF"""
     input_path = urllib.parse.unquote(input_path)
     input_path = os.path.normpath(input_path)
     soffice = _which("soffice") or _which("libreoffice")
@@ -273,7 +279,7 @@ def _office_to_pdf_libreoffice(input_path: str, out_path: str):
     out_dir = os.path.dirname(out_path) or os.getcwd()
     _safe_ensure_dir(out_dir)
     subprocess.run([soffice, "--headless", "--convert-to", "pdf", "--outdir", out_dir, input_path],
-                   check=True, capture_output=True)
+                   check=True, capture_output=True, text=True, encoding='utf-8', errors='ignore')
     base = os.path.splitext(os.path.basename(input_path))[0]
     produced = os.path.join(out_dir, base + ".pdf")
     if os.path.abspath(produced) != os.path.abspath(out_path):
@@ -283,6 +289,7 @@ def _office_to_pdf_libreoffice(input_path: str, out_path: str):
 
 
 def _image_to_pdf(input_path: str, out_path: str):
+    """将图片转换为 PDF"""
     if Image is None:
         raise RuntimeError("缺少 Pillow 库")
     with Image.open(input_path) as im:
@@ -292,6 +299,7 @@ def _image_to_pdf(input_path: str, out_path: str):
 
 
 def _pdf_to_text(input_path: str) -> str:
+    """提取 PDF 文本内容"""
     if fitz is None:
         raise RuntimeError("缺少 PyMuPDF")
     doc = fitz.open(input_path)
@@ -304,6 +312,7 @@ def _pdf_to_text(input_path: str) -> str:
 
 
 def _pdf_to_html(input_path: str) -> str:
+    """将 PDF 转换为 XHTML 字符串"""
     if fitz is None:
         raise RuntimeError("缺少 PyMuPDF")
     doc = fitz.open(input_path)
@@ -314,6 +323,7 @@ def _pdf_to_html(input_path: str) -> str:
 
 
 def _pdf_to_images_like_reference(input_path, out_dir, base_name, fmt, dpi, page_expr, custom_names=None):
+    """将 PDF 页面导出为图片"""
     if fitz is None:
         raise RuntimeError("缺少 PyMuPDF")
     base_name = base_name or os.path.splitext(os.path.basename(input_path))[0]
@@ -343,6 +353,7 @@ def _pdf_to_images_like_reference(input_path, out_dir, base_name, fmt, dpi, page
 
 
 def _pdf_to_excel(input_path: str, out_path: str, page_expr: str = "", merge_to_one_sheet: bool = False):
+    """将 PDF 表格导出为 Excel"""
     try:
         import pdfplumber
         import pandas as pd
@@ -374,6 +385,7 @@ def _pdf_to_excel(input_path: str, out_path: str, page_expr: str = "", merge_to_
 
 
 def _pdf_to_pptx(input_path: str, out_path: str, dpi: int = 150, page_expr: str = ""):
+    """将 PDF 页面转换为 PPTX"""
     if fitz is None:
         raise RuntimeError("缺少 PyMuPDF")
     try:
@@ -403,6 +415,7 @@ def _pdf_to_pptx(input_path: str, out_path: str, dpi: int = 150, page_expr: str 
 
 
 def _office_convert_windows(input_path: str, out_path: str, target_ext: str):
+    """使用 Microsoft Office 进行文档格式转换"""
     import pythoncom
     import comtypes.client
 
@@ -486,21 +499,19 @@ def _office_convert_windows(input_path: str, out_path: str, target_ext: str):
 
 
 def run_task(file_item, settings: dict, custom_names=None):
+    """执行单个文件转换任务"""
     direction = settings.get("direction", "to_pdf").lower()
     target = settings.get("target", "pdf").lower()
     dpi = int(settings.get("dpi", 72))
-    page_expr = settings.get("page_range", "")
-    xlsx_merge = bool(settings.get("xlsx_merge_to_one_sheet", False))
+    page_expr = settings.get("range_edit", "")
+    xlsx_merge_check = bool(settings.get("xlsx_merge_check_to_one_sheet", False))
 
     src = file_item.input_path
     in_ext = os.path.splitext(src)[1].lower()
     out_dir = file_item.output_dir or os.path.dirname(src)
     _safe_ensure_dir(out_dir)
 
-    base_name = os.path.splitext(file_item.output_name)[0]
-    final_name = f"{base_name}.{target}"
-    file_item.output_name = final_name
-    out_path = os.path.join(out_dir, final_name)
+    out_path = os.path.join(out_dir, file_item.output_name)
 
     if direction == "to_pdf":
         if in_ext == ".pdf":
@@ -529,7 +540,7 @@ def run_task(file_item, settings: dict, custom_names=None):
         if sys.platform.startswith("win") and comtypes is not None:
             _office_convert_windows(src, out_path, target)
         else:
-            raise RuntimeError("Office文档互转需要 Windows + Microsoft Office")
+            raise RuntimeError("Office 文档互转需要 Windows + Microsoft Office")
 
     else:
         if in_ext != ".pdf":
@@ -554,7 +565,7 @@ def run_task(file_item, settings: dict, custom_names=None):
             file_item.output_paths = written
             file_item.output_name = os.path.basename(written[0]) if written else ""
         elif target == "xlsx":
-            _pdf_to_excel(src, out_path, page_expr, xlsx_merge)
+            _pdf_to_excel(src, out_path, page_expr, xlsx_merge_check)
         elif target == "pptx":
             _pdf_to_pptx(src, out_path, dpi, page_expr)
         else:

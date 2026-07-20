@@ -8,116 +8,110 @@ import subprocess
 from PySide6.QtCore import Signal
 from PySide6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QLabel, QSpinBox, QComboBox,
-    QPushButton, QFileDialog, QMessageBox
+    QPushButton, QFileDialog, QMessageBox, QSizePolicy
 )
-from core.utils import get_group_key, load_app_config, save_app_config, get_ffmpeg_path
+from core.utils import get_group_key, save_app_config, get_ffmpeg_path, get_unique_file_path
 
 
 class VideoMergePanel(QWidget):
     changed = Signal()
 
     def __init__(self):
+        """初始化设置面板"""
         super().__init__()
         self.ffmpeg_path = get_ffmpeg_path()
         layout = QVBoxLayout(self)
         layout.setSpacing(8)
 
-        group_row = QHBoxLayout()
-        group_row.addWidget(QLabel("分组方式:"))
-        self.group_mode = QComboBox()
-        self.group_mode.addItems(["按文件名前缀长度", "每N个一组", "按文件夹", "所有文件"])
-        self.group_mode.currentIndexChanged.connect(self._toggle_options)
-        group_row.addWidget(self.group_mode, 1)
-
+        self.group_combo = QComboBox()
+        self.group_combo.addItems(["按文件名前缀长度", "每 N 个一组", "按文件夹", "所有文件"])
+        self.group_combo.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
         self.prefix_spin = QSpinBox()
         self.prefix_spin.setRange(1, 50)
         self.prefix_spin.setValue(9)
-        self.prefix_spin.setFixedWidth(70)
-        self.prefix_spin.setVisible(False)
-        group_row.addWidget(self.prefix_spin)
-
+        self.prefix_spin.setSizePolicy(QSizePolicy.Ignored, QSizePolicy.Fixed)
         self.group_spin = QSpinBox()
         self.group_spin.setRange(2, 9999)
         self.group_spin.setValue(5)
-        self.group_spin.setFixedWidth(70)
-        self.group_spin.setVisible(False)
-        group_row.addWidget(self.group_spin)
-
-        layout.addLayout(group_row)
-
-        fmt_row = QHBoxLayout()
-        fmt_row.addWidget(QLabel("输出格式:"))
-        self.out_format = QComboBox()
-        self.out_format.addItems(["mp4", "mkv", "avi", "mov"])
-        fmt_row.addWidget(self.out_format, 1)
-        layout.addLayout(fmt_row)
-
-        codec_row = QHBoxLayout()
-        codec_row.addWidget(QLabel("编码方式:"))
-        self.codec_mode = QComboBox()
-        self.codec_mode.addItems(["直接合并（快速）", "重新编码（兼容）"])
-        self.codec_mode.currentIndexChanged.connect(self._on_codec_mode_changed)
-        codec_row.addWidget(self.codec_mode, 1)
-        layout.addLayout(codec_row)
-
+        self.group_spin.setSizePolicy(QSizePolicy.Ignored, QSizePolicy.Fixed)
+        self.format_combo = QComboBox()
+        self.format_combo.addItems(["mp4", "mkv", "avi", "mov"])
+        self.format_combo.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
+        self.codec_combo = QComboBox()
+        self.codec_combo.addItems(["直接合并（快速）", "重新编码（兼容）"])
+        self.codec_combo.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
         self.encoder_widget = QWidget()
-        encoder_row = QHBoxLayout(self.encoder_widget)
-        encoder_row.setContentsMargins(0, 0, 0, 0)
-        encoder_row.addWidget(QLabel("视频编码器:"))
-        self.video_codec = QComboBox()
-        self.video_codec.addItems([
-            "libx264（推荐）",
-            "libx265（文件更小）",
-            "h264_nvenc（显卡加速）",
-            "hevc_nvenc（显卡加速）"
-        ])
-        encoder_row.addWidget(self.video_codec, 1)
-        layout.addWidget(self.encoder_widget)
-
+        self.encoder_combo = QComboBox()
+        self.encoder_combo.addItems(["libx264（推荐）", "libx265（文件更小）", "h264_nvenc（显卡加速）", "hevc_nvenc（显卡加速）"])
+        self.encoder_combo.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
         self.preset_widget = QWidget()
-        preset_row = QHBoxLayout(self.preset_widget)
-        preset_row.setContentsMargins(0, 0, 0, 0)
-        preset_row.addWidget(QLabel("预设:"))
         self.preset_combo = QComboBox()
         self.preset_combo.addItems(["快速", "平衡", "高质量"])
-        preset_row.addWidget(self.preset_combo, 1)
+        self.preset_combo.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)  
+
+        row_param1 = QHBoxLayout()
+        row_param1.addWidget(QLabel("分组方式:"))
+        row_param1.addWidget(self.group_combo, 1)
+        row_param1.addWidget(self.prefix_spin, 1)
+        row_param1.addWidget(self.group_spin, 1)
+        row_param2 = QHBoxLayout()
+        row_param2.addWidget(QLabel("目标格式:"))
+        row_param2.addWidget(self.format_combo, 1)       
+        row_param3 = QHBoxLayout()
+        row_param3.addWidget(QLabel("编码方式:"))
+        row_param3.addWidget(self.codec_combo, 1)        
+        row_param4 = QHBoxLayout(self.encoder_widget)
+        row_param4.setContentsMargins(0, 0, 0, 0)
+        row_param4.addWidget(QLabel("视频编码器:"))
+        row_param4.addWidget(self.encoder_combo, 1)
+        row_param5 = QHBoxLayout(self.preset_widget)
+        row_param5.setContentsMargins(0, 0, 0, 0)
+        row_param5.addWidget(QLabel("预设:"))
+        row_param5.addWidget(self.preset_combo, 1)
+        layout.addLayout(row_param1)
+        layout.addLayout(row_param2)
+        layout.addLayout(row_param3)
+        layout.addWidget(self.encoder_widget)
         layout.addWidget(self.preset_widget)
 
-        ffmpeg_row = QHBoxLayout()
-        ffmpeg_row.addWidget(QLabel("FFmpeg 路径:"))
-        self.ffmpeg_path_label = QLabel(self.ffmpeg_path if self.ffmpeg_path else "未找到")
-        self.ffmpeg_path_label.setWordWrap(False)
-        self.ffmpeg_path_label.setStyleSheet("color: #555;")
+        self.ffmpeg_label = QLabel(self.ffmpeg_path if self.ffmpeg_path else "未找到")
+        self.ffmpeg_label.setWordWrap(False)
+        self.ffmpeg_label.setStyleSheet("color: #555;")
+        self.ffmpeg_label.setSizePolicy(QSizePolicy.Ignored, QSizePolicy.Fixed)
         if self.ffmpeg_path:
-            self.ffmpeg_path_label.setToolTip(self.ffmpeg_path)
-        self.ffmpeg_path_label.setMinimumWidth(200)
-        ffmpeg_row.addWidget(self.ffmpeg_path_label, 1)
-        layout.addLayout(ffmpeg_row)
-
+            self.ffmpeg_label.setToolTip(self.ffmpeg_path)
         self.ffmpeg_btn = QPushButton("手动指定 FFmpeg 路径")
-        self.ffmpeg_btn.clicked.connect(self.select_ffmpeg_path)
-        layout.addWidget(self.ffmpeg_btn)
+        self.ffmpeg_btn.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)        
+        
+        row_ffmpeg = QHBoxLayout()
+        row_ffmpeg.addWidget(QLabel("FFmpeg 路径:"))
+        row_ffmpeg.addWidget(self.ffmpeg_label, 1)
+        layout.addLayout(row_ffmpeg)
+        layout.addWidget(self.ffmpeg_btn, 1)
 
         layout.addStretch()
 
-        self.group_mode.currentIndexChanged.connect(self.changed)
+        self.group_combo.currentIndexChanged.connect(self._toggle_options)
+        self.group_combo.currentIndexChanged.connect(self.changed)
         self.prefix_spin.valueChanged.connect(self.changed)
         self.group_spin.valueChanged.connect(self.changed)
-        self.out_format.currentIndexChanged.connect(self.changed)
-        self.codec_mode.currentIndexChanged.connect(self.changed)
-        self.video_codec.currentIndexChanged.connect(self.changed)
+        self.format_combo.currentIndexChanged.connect(self.changed)
+        self.codec_combo.currentIndexChanged.connect(self._on_codec_combo_changed)
+        self.codec_combo.currentIndexChanged.connect(self.changed)
+        self.encoder_combo.currentIndexChanged.connect(self.changed)
         self.preset_combo.currentIndexChanged.connect(self.changed)
+        self.ffmpeg_btn.clicked.connect(self.select_ffmpeg_path)
 
         self._toggle_options()
-        self._on_codec_mode_changed()
+        self._on_codec_combo_changed()
 
     def _toggle_options(self):
-        mode = self.group_mode.currentIndex()
+        mode = self.group_combo.currentIndex()
         self.prefix_spin.setVisible(mode == 0)
         self.group_spin.setVisible(mode == 1)
 
-    def _on_codec_mode_changed(self):
-        is_direct = self.codec_mode.currentIndex() == 0
+    def _on_codec_combo_changed(self):
+        is_direct = self.codec_combo.currentIndex() == 0
         self.encoder_widget.setVisible(not is_direct)
         self.preset_widget.setVisible(not is_direct)
 
@@ -131,56 +125,69 @@ class VideoMergePanel(QWidget):
                 subprocess.run([path, "-version"], capture_output=True, check=True)
                 save_app_config("ffmpeg_path", path)
                 self.ffmpeg_path = path
-                self.ffmpeg_path_label.setText(path)
-                self.ffmpeg_path_label.setToolTip(path)
+                self.ffmpeg_label.setText(path)
+                self.ffmpeg_label.setToolTip(path)
                 QMessageBox.information(self, "成功", "FFmpeg 路径已设置并保存。")
             except Exception as e:
                 QMessageBox.warning(self, "错误", f"所选文件不是有效的 FFmpeg 可执行文件：{e}")
 
 
 def build_panel() -> QWidget:
+    """构建面板实例"""
     return VideoMergePanel()
 
 
 def collect_settings(panel: VideoMergePanel) -> dict:
+    """收集面板设置"""
+    encoder_text = panel.encoder_combo.currentText()
+    encoder = encoder_text.split('（')[0] if '（' in encoder_text else encoder_text
     return {
-        "group_mode": panel.group_mode.currentIndex(),
+        "group_combo": panel.group_combo.currentIndex(),
         "prefix_len": panel.prefix_spin.value(),
         "group_size": panel.group_spin.value(),
-        "out_format": panel.out_format.currentText(),
-        "codec_mode": panel.codec_mode.currentIndex(),
-        "video_codec": panel.video_codec.currentText(),
+        "format_combo": panel.format_combo.currentText(),
+        "codec_combo": panel.codec_combo.currentIndex(),
+        "encoder_combo": encoder,
         "preset": panel.preset_combo.currentText(),
     }
 
 
 def prepare_preview(items, settings):
-    group_mode = settings.get("group_mode", 0)
+    """生成预览信息"""
+    group_combo = settings.get("group_combo", 0)
     prefix_len = settings.get("prefix_len", 9)
     group_size = settings.get("group_size", 5)
-    out_format = settings.get("out_format", "mp4")
+    format_combo = settings.get("format_combo", "mp4")
+    codec_combo = settings.get("codec_combo", 0)
+    encoder_combo = settings.get("encoder_combo", "libx264（推荐）")
+    preset = settings.get("preset", "平衡")
 
     file_paths = [it.input_path for it in items]
     groups = {}
     for it in items:
-        key = get_group_key(it.input_path, group_mode, prefix_len, group_size, file_paths)
+        key = get_group_key(it.input_path, group_combo, prefix_len, group_size, file_paths)
         groups.setdefault(key, []).append(it.input_path)
 
     for it in items:
-        key = get_group_key(it.input_path, group_mode, prefix_len, group_size, file_paths)
-        display_key = "全部文件" if key == "__all__" else (os.path.basename(key) if group_mode == 2 else key)
-        it.preview_extra = {"A": f"视频合并：组「{display_key}」共 {len(groups[key])} 个 → .{out_format}"}
+        key = get_group_key(it.input_path, group_combo, prefix_len, group_size, file_paths)
+        display_key = "全部文件" if key == "__all__" else (os.path.basename(key) if group_combo == 2 else key)
+        count = len(groups[key])
+        method = "直接合并" if codec_combo == 0 else f"重新编码（{encoder_combo}，{preset}）"
+        it.preview_extra = {
+            "A": f"视频合并：组「{display_key}」{count}个 → .{format_combo}，{method}"
+        }
         it.preview_extra["group_key"] = display_key
 
 
 def merge_videos(video_paths: list, output_path: str, settings: dict):
+    """使用 FFmpeg 合并多个视频"""
     ffmpeg = get_ffmpeg_path()
     if not ffmpeg:
         raise RuntimeError("未找到 FFmpeg，请安装并添加到 PATH，或手动指定路径")
 
-    codec_mode = settings.get("codec_mode", 0)
-    out_format = settings.get("out_format", "mp4")
-    video_codec = settings.get("video_codec", "libx264")
+    codec_combo = settings.get("codec_combo", 0)
+    format_combo = settings.get("format_combo", "mp4")
+    encoder_combo = settings.get("encoder_combo", "libx264")
     preset_map = {"快速": "fast", "平衡": "medium", "高质量": "slow"}
     preset = preset_map.get(settings.get("preset", "平衡"), "medium")
 
@@ -195,7 +202,7 @@ def merge_videos(video_paths: list, output_path: str, settings: dict):
             f.write(f"file '{abs_path.replace('\\', '/')}'\n")
 
     try:
-        if codec_mode == 0:
+        if codec_combo == 0:
             cmd = [
                 ffmpeg,
                 "-f", "concat",
@@ -211,7 +218,7 @@ def merge_videos(video_paths: list, output_path: str, settings: dict):
                 "-f", "concat",
                 "-safe", "0",
                 "-i", list_path,
-                "-c:v", video_codec,
+                "-c:v", encoder_combo,
                 "-preset", preset,
                 "-c:a", "aac",
                 "-b:a", "192k",
@@ -224,6 +231,8 @@ def merge_videos(video_paths: list, output_path: str, settings: dict):
             check=True,
             capture_output=True,
             text=True,
+            encoding='utf-8',
+            errors='ignore',
             creationflags=subprocess.CREATE_NO_WINDOW if sys.platform == "win32" else 0
         )
 
@@ -234,18 +243,19 @@ def merge_videos(video_paths: list, output_path: str, settings: dict):
 
 def run_batch(items, settings, get_output_dir, get_output_name_for_group,
               log_callback=None, progress_callback=None, stop_check=None):
+    """批量合并视频"""
     if not items:
         return []
 
-    group_mode = settings.get("group_mode", 0)
+    group_combo = settings.get("group_combo", 0)
     prefix_len = settings.get("prefix_len", 9)
     group_size = settings.get("group_size", 5)
-    out_format = settings.get("out_format", "mp4")
+    format_combo = settings.get("format_combo", "mp4")
 
     file_paths = [it.input_path for it in items]
     groups = {}
     for item in items:
-        key = get_group_key(item.input_path, group_mode, prefix_len, group_size, file_paths)
+        key = get_group_key(item.input_path, group_combo, prefix_len, group_size, file_paths)
         groups.setdefault(key, []).append(item)
 
     output_files = []
@@ -262,26 +272,23 @@ def run_batch(items, settings, get_output_dir, get_output_name_for_group,
             break
 
         if log_callback:
-            display_key = "全部文件" if group_key == "__all__" else group_key
+            display_key = "全部文件" if group_key == "__all__" else (os.path.basename(group_key) if group_combo == 2 else group_key)
             log_callback(f"正在合并组：{display_key}（共 {len(group_items)} 个文件）")
 
         out_dir = get_output_dir(group_items[0])
 
         if group_key == "__all__":
             base_name = get_output_name_for_group("全部")
-        elif group_mode == 2:
+        elif group_combo == 2:
             base_name = get_output_name_for_group(os.path.basename(group_key))
         else:
             base_name = get_output_name_for_group(group_key)
 
-        out_name = f"{base_name}.{out_format}"
-        out_path = os.path.join(out_dir, out_name)
+        if not base_name.endswith(f".{format_combo}"):
+            base_name = f"{base_name}.{format_combo}"
 
-        if os.path.exists(out_path):
-            counter = 1
-            while os.path.exists(os.path.join(out_dir, f"{base_name}_{counter}.{out_format}")):
-                counter += 1
-            out_path = os.path.join(out_dir, f"{base_name}_{counter}.{out_format}")
+        base, ext = os.path.splitext(base_name)
+        out_path = get_unique_file_path(out_dir, base, ext)
 
         video_paths = [fi.input_path for fi in group_items]
 
@@ -308,4 +315,5 @@ def run_batch(items, settings, get_output_dir, get_output_name_for_group,
 
 
 def run_task(file_item, settings):
+    """视频合并不支持单任务模式"""
     raise NotImplementedError("视频合并功能请使用 run_batch，不要使用 run_task")

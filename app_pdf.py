@@ -17,6 +17,7 @@ from features.pdf_resize import detect_page_sizes, get_detect_summary_for_autose
 
 class PDFMainWindow(BaseMainWindow):
     def __init__(self):
+        """初始化主窗口"""
         super().__init__(
             app_title=f"PDF 批量处理工具  v{PDF_VERSION}    ©张小鱼",
             feature_modules=PDF_FEATURES,
@@ -25,9 +26,10 @@ class PDFMainWindow(BaseMainWindow):
         )
 
     def _connect_extra_signals(self, feat, panel):
+        """连接 PDF 特有信号"""
         super()._connect_extra_signals(feat, panel)
         
-        if feat["name"] == "调整PDF尺寸":
+        if feat["name"] == "调整 PDF 尺寸":
             if hasattr(panel, "detect_requested"):
                 try:
                     panel.detect_requested.disconnect(self._on_detect_size_requested)
@@ -35,7 +37,7 @@ class PDFMainWindow(BaseMainWindow):
                     pass
                 panel.detect_requested.connect(self._on_detect_size_requested)
                 
-        if feat["name"] == "PDF添加书签":
+        if feat["name"] == "PDF 添加书签":
             if hasattr(panel, "detect_bookmark_signal"):
                 try:
                     panel.detect_bookmark_signal.disconnect(self._detect_pages_and_bookmarks)
@@ -49,7 +51,7 @@ class PDFMainWindow(BaseMainWindow):
                     pass
                 panel.clear_bookmark_signal.connect(self._clear_bookmarks)
                 
-        if feat["name"] == "组织PDF页面":
+        if feat["name"] == "组织 PDF 页面":
             if hasattr(panel, "detect_page_signal"):
                 try:
                     panel.detect_page_signal.disconnect(self._detect_pages)
@@ -58,6 +60,7 @@ class PDFMainWindow(BaseMainWindow):
                 panel.detect_page_signal.connect(self._detect_pages)
 
     def _on_detect_size_requested(self):
+        """检测所有文件的页面尺寸，自动设置匹配的标准尺寸"""
         items = self.preview_mgr.items
         if not items:
             QMessageBox.warning(self, "提示", "请先添加要检测的PDF文件")
@@ -88,7 +91,7 @@ class PDFMainWindow(BaseMainWindow):
         if matched:
             resize_idx = None
             for i, feat in enumerate(self.feature_modules):
-                if feat["name"] == "调整PDF尺寸":
+                if feat["name"] == "调整 PDF 尺寸":
                     resize_idx = i
                     break
             if resize_idx is not None:
@@ -100,6 +103,7 @@ class PDFMainWindow(BaseMainWindow):
                         self.append_log(f"已自动设置目标尺寸为：{matched}")
 
     def _detect_pages_and_bookmarks(self):
+        """检测文件的页码和书签结构"""
         from PyPDF2 import PdfReader
 
         items = self.preview_mgr.items
@@ -145,6 +149,7 @@ class PDFMainWindow(BaseMainWindow):
         self.append_log("")
 
     def _clear_bookmarks(self):
+        """清除所有文件的已有书签"""
         from PyPDF2 import PdfReader, PdfWriter
         from PySide6.QtWidgets import QMessageBox
 
@@ -200,7 +205,7 @@ class PDFMainWindow(BaseMainWindow):
         self._detect_pages_and_bookmarks()
 
     def _format_outline(self, outline, reader, level=1):
-        """递归提取书签，返回 ['层级 标题 页码', ...] 列表"""
+        """递归格式化书签为文本行"""
         lines = []
         if not outline:
             return lines
@@ -227,6 +232,7 @@ class PDFMainWindow(BaseMainWindow):
         return lines
 
     def _detect_pages(self):
+        """检测文件的页码数量"""
         from PyPDF2 import PdfReader
 
         items = self.preview_mgr.items
@@ -254,7 +260,7 @@ class PDFMainWindow(BaseMainWindow):
 
 
     def on_cell_double_clicked(self, item):
-        """重写父类方法，增加书签编辑功能"""
+        """重写父类方法：支持在“设置”列双击编辑单个文件的书签"""
         row = item.row()
         fi = self.preview_mgr.items[row]
         col = item.column()
@@ -264,14 +270,14 @@ class PDFMainWindow(BaseMainWindow):
             return
         feature_name = self.feature_modules[idx]["name"]
 
-        if feature_name == "PDF添加书签" and col == self.COL_PREVIEW:
+        if feature_name == "PDF 添加书签" and col == self.COL_PREVIEW:
             self._edit_outlines_for_file(row, fi)
             return
 
         super().on_cell_double_clicked(item)
 
     def _edit_outlines_for_file(self, row: int, fi):
-        """弹出书签编辑对话框，针对单个文件"""
+        """弹出对话框编辑单个文件的自定义书签"""
         idx = self.feature_box.currentIndex()
         outline_panel = self.feature_panels[idx]
 
