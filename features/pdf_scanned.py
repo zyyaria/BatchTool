@@ -22,14 +22,13 @@ class ScanPanel(QWidget):
         layout = QVBoxLayout(self)
         layout.setSpacing(8)
 
+        row_preset = QHBoxLayout()
         self.scan_btn = QPushButton("高清扫描")
         self.scan_btn.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
         self.print_color_btn = QPushButton("彩色打印")
         self.print_color_btn.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
         self.print_bw_btn = QPushButton("黑白打印")
         self.print_bw_btn.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
-
-        row_preset = QHBoxLayout()
         row_preset.addWidget(QLabel("预设:"))
         row_preset.addWidget(self.scan_btn, 1)
         row_preset.addWidget(self.print_color_btn, 1)
@@ -38,6 +37,9 @@ class ScanPanel(QWidget):
 
         basic_label = QLabel("基本设置:")
         basic_label.setStyleSheet("font-weight: 600; margin-top: 4px; margin-left: -3px;")
+        layout.addWidget(basic_label)
+
+        row_color = QHBoxLayout()
         self.color_combo = QComboBox()
         self.color_combo.addItems(["彩色", "黑白"])
         self.color_combo.setCurrentText("彩色")
@@ -47,17 +49,17 @@ class ScanPanel(QWidget):
         self.dpi_spin.setValue(150)
         self.dpi_spin.setSuffix(" ppi")
         self.dpi_spin.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
-
-        row_basic = QHBoxLayout()
-        row_basic.addWidget(QLabel("颜色模式:"))
-        row_basic.addWidget(self.color_combo, 1)
-        row_basic.addWidget(QLabel("分辨率:"))
-        row_basic.addWidget(self.dpi_spin, 1)
-        layout.addWidget(basic_label)
-        layout.addLayout(row_basic)
+        row_color.addWidget(QLabel("颜色模式:"))
+        row_color.addWidget(self.color_combo, 1)
+        row_color.addWidget(QLabel("分辨率:"))
+        row_color.addWidget(self.dpi_spin, 1)
+        layout.addLayout(row_color)
 
         adjust_label = QLabel("图片调节:")
         adjust_label.setStyleSheet("font-weight: 600; margin-top: 4px; margin-left: -3px;")
+        layout.addWidget(adjust_label)
+
+        row_brightness = QHBoxLayout()
         self.brightness_spin = QSpinBox()
         self.brightness_spin.setRange(0, 200)
         self.brightness_spin.setValue(100)
@@ -68,6 +70,13 @@ class ScanPanel(QWidget):
         self.contrast_spin.setValue(100)
         self.contrast_spin.setSuffix(" %")
         self.contrast_spin.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
+        row_brightness.addWidget(QLabel("亮度:"))
+        row_brightness.addWidget(self.brightness_spin, 1)
+        row_brightness.addWidget(QLabel("对比度:"))
+        row_brightness.addWidget(self.contrast_spin, 1)
+        layout.addLayout(row_brightness)
+
+        row_blur = QHBoxLayout()
         self.blur_spin = QSpinBox()
         self.blur_spin.setRange(0, 100)
         self.blur_spin.setValue(10)
@@ -78,33 +87,24 @@ class ScanPanel(QWidget):
         self.noise_spin.setValue(5)
         self.noise_spin.setSuffix(" %")
         self.noise_spin.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
+        row_blur.addWidget(QLabel("模糊:"))
+        row_blur.addWidget(self.blur_spin, 1)
+        row_blur.addWidget(QLabel("噪点:"))
+        row_blur.addWidget(self.noise_spin, 1)  
+        layout.addLayout(row_blur)
+
+        row_yellow = QHBoxLayout()
         self.yellow_spin = QSpinBox()
         self.yellow_spin.setRange(0, 100)
         self.yellow_spin.setValue(0)
         self.yellow_spin.setSuffix(" %")
         self.yellow_spin.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
-
-        row_adjust1 = QHBoxLayout()
-        row_adjust1.addWidget(QLabel("亮度:"))
-        row_adjust1.addWidget(self.brightness_spin, 1)
-        row_adjust1.addWidget(QLabel("对比度:"))
-        row_adjust1.addWidget(self.contrast_spin, 1)
-        row_adjust2 = QHBoxLayout()
-        row_adjust2.addWidget(QLabel("模糊:"))
-        row_adjust2.addWidget(self.blur_spin, 1)
-        row_adjust2.addWidget(QLabel("噪点:"))
-        row_adjust2.addWidget(self.noise_spin, 1)       
-        row_adjust3 = QHBoxLayout()
-        row_adjust3.addWidget(QLabel("发黄:"))
-        row_adjust3.addWidget(self.yellow_spin, 1)         
-        layout.addWidget(adjust_label)
-        layout.addLayout(row_adjust1)
-        layout.addLayout(row_adjust2)
-        layout.addLayout(row_adjust3)
+        row_yellow.addWidget(QLabel("发黄:"))
+        row_yellow.addWidget(self.yellow_spin, 1)         
+        layout.addLayout(row_yellow)
 
         self.reset_btn = QPushButton("重置为默认值")
         self.reset_btn.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
-        
         layout.addWidget(self.reset_btn, 1)
 
         layout.addStretch()
@@ -122,6 +122,7 @@ class ScanPanel(QWidget):
         self.reset_btn.clicked.connect(self._apply_default)
 
     def _apply_preset(self, preset_name: str):
+        """应用预设参数"""
         presets = {
             "hd":          {"color": "彩色", "dpi": 300, "brightness": 100, "contrast": 100, "blur": 0, "noise": 0, "yellow": 0},
             "print_color": {"color": "彩色", "dpi": 150, "brightness": 100, "contrast": 110, "blur": 5, "noise": 3, "yellow": 0},
@@ -138,8 +139,9 @@ class ScanPanel(QWidget):
         self.noise_spin.setValue(p["noise"])
         self.yellow_spin.setValue(p["yellow"])
         self.changed.emit()
-
+        
     def _apply_default(self):
+        """重置为默认值参数"""
         self.color_combo.setCurrentText("彩色")
         self.dpi_spin.setValue(150)
         self.brightness_spin.setValue(100)
@@ -158,26 +160,25 @@ def build_panel() -> QWidget:
 def collect_settings(panel: ScanPanel) -> dict:
     """收集面板设置"""
     return {
-        "color_combo": panel.color_combo.currentText(),
+        "color": panel.color_combo.currentText(),
         "dpi": panel.dpi_spin.value(),
-        "brightness_spin": panel.brightness_spin.value() / 100.0,
-        "contrast_spin": panel.contrast_spin.value() / 100.0,
-        "blur_spin": panel.blur_spin.value() / 100.0,
-        "noise_spin": panel.noise_spin.value() / 100.0,
-        "yellow_spin": panel.yellow_spin.value() / 100.0,
+        "brightness": panel.brightness_spin.value() / 100.0,
+        "contrast": panel.contrast_spin.value() / 100.0,
+        "blur": panel.blur_spin.value() / 100.0,
+        "noise": panel.noise_spin.value() / 100.0,
+        "yellow": panel.yellow_spin.value() / 100.0,
     }
 
 
 def prepare_preview(items, settings):
     """生成预览信息"""
-    mode = "黑白" if settings.get("color_combo") == "黑白" else "彩色"
+    mode = "黑白" if settings.get("color") == "黑白" else "彩色"
     dpi = settings.get("dpi", 150)
-    brightness = settings.get("brightness_spin", 1.0) * 100
-    contrast = settings.get("contrast_spin", 1.0) * 100
-    blur = settings.get("blur_spin", 0.0) * 100
-    noise = settings.get("noise_spin", 0.0) * 100
-    yellow = settings.get("yellow_spin", 0.0) * 100
-
+    brightness = settings.get("brightness", 1.0) * 100
+    contrast = settings.get("contrast", 1.0) * 100
+    blur = settings.get("blur", 0.0) * 100
+    noise = settings.get("noise", 0.0) * 100
+    yellow = settings.get("yellow", 0.0) * 100
     desc = f"扫描({mode})，DPI={dpi}，亮度{brightness:.0f}%，对比{contrast:.0f}%，模糊{blur:.0f}%，噪点{noise:.0f}%"
     if yellow > 0:
         desc += f"，发黄{yellow:.0f}%"
@@ -203,37 +204,29 @@ def _pdf_to_scanned_images(input_pdf: str, settings: dict):
     dpi = settings["dpi"]
     zoom = dpi / 72
     mat = fitz.Matrix(zoom, zoom)
-
     for page_num in range(len(doc)):
         page = doc.load_page(page_num)
         pix = page.get_pixmap(matrix=mat, alpha=False)
         img_data = pix.tobytes("png")
         img = Image.open(io.BytesIO(img_data)).convert("RGB")
-
         enhancer = ImageEnhance.Brightness(img)
-        img = enhancer.enhance(settings["brightness_spin"])
+        img = enhancer.enhance(settings["brightness"])
         enhancer = ImageEnhance.Contrast(img)
-        img = enhancer.enhance(settings["contrast_spin"])
-
-        blur_radius = settings["blur_spin"] * 2
+        img = enhancer.enhance(settings["contrast"])
+        blur_radius = settings["blur"] * 2
         if blur_radius > 0:
             img = img.filter(ImageFilter.GaussianBlur(radius=blur_radius))
-
-        noise_level = int(settings["noise_spin"] * 50)
+        noise_level = int(settings["noise"] * 50)
         if noise_level > 0:
             img_np = np.array(img)
             noise = np.random.randint(-noise_level, noise_level, img_np.shape, dtype='int16')
             img_np = np.clip(img_np.astype('int16') + noise, 0, 255).astype('uint8')
             img = Image.fromarray(img_np)
-
-        if settings["color_combo"] == "彩色" and settings["yellow_spin"] > 0:
-            img = _apply_yellow_tint(img, settings["yellow_spin"])
-
-        if settings["color_combo"] == "黑白":
+        if settings["color"] == "彩色" and settings["yellow"] > 0:
+            img = _apply_yellow_tint(img, settings["yellow"])
+        if settings["color"] == "黑白":
             img = img.convert("L")
-
         images.append(img)
-
     doc.close()
     return images
 
@@ -253,6 +246,8 @@ def run_task(file_item, settings: dict):
     images = _pdf_to_scanned_images(src, settings)
     if images:
         images[0].save(out_path, "PDF", save_all=True, append_images=images[1:])
+        for img in images:
+            img.close()
         file_item.status = "完成"
     else:
         raise RuntimeError("未生成任何图片")

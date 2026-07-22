@@ -26,6 +26,9 @@ from .utils import (
     NamingRule,
     get_ffmpeg_path,
     set_ffmpeg_path,
+)
+
+from .version import (
     PDF_VERSION,
     IMG_VERSION,
     VIDEO_VERSION,

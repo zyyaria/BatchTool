@@ -830,12 +830,12 @@ class BaseMainWindow(UIMixin, QMainWindow):
             "img_split": ("target_format", "原格式"),
             "pdf_convert": ("target", "pdf"),
             "pdf_compress": ("__fixed__", "pdf"),
-            "video_cut": ("output_format", "原格式"),
-            "video_gifmaker": ("__fixed__", "gif"),
-            "video_merge": ("output_format", "mp4"),
-            "img_merge": ("output_format", "png"),
+            "video_cut": ("format", "原格式"),
+            "video_to_gif": ("__fixed__", "gif"), 
+            "video_merge": ("format", "mp4"),  
+            "img_merge": ("format", "png"), 
             "pdf_merge": ("__fixed__", "pdf"),
-            "img_gifmaker": ("__fixed__", "gif"),
+            "img_to_gif": ("__fixed__", "gif"), 
         }
 
         if module_name not in mapping:
@@ -1145,7 +1145,7 @@ class BaseMainWindow(UIMixin, QMainWindow):
             return False
         module = self.feature_modules[idx]["module"]
         module_name = module.__name__.split('.')[-1]
-        batch_modules = ["pdf_organize", "img_merge", "img_gifmaker", "pdf_merge", "video_merge", "img_gifmerge"]
+        batch_modules = ["pdf_organize", "img_merge", "img_to_gif", "pdf_merge", "video_merge"]
         return module_name in batch_modules
 
     def _run_batch_task(self, checked_items):

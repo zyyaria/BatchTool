@@ -25,27 +25,27 @@ class ConvertPanel(QWidget):
         layout = QVBoxLayout(self)
         layout.setSpacing(8)
 
+        row_format = QHBoxLayout()
         self.format_combo = QComboBox()
         self.format_combo.addItems(["PNG", "JPG", "WEBP", "BMP", "TIFF", "GIF", "ICO"])
         self.format_combo.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
         self.fill_check = QCheckBox("填充白色背景")
         self.fill_check.setChecked(True)
         self.fill_check.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Fixed)
+        row_format.addWidget(QLabel("目标格式:"))
+        row_format.addWidget(self.format_combo, 1)
+        row_format.addWidget(self.fill_check)
+        layout.addLayout(row_format)
+
+        row_quality = QHBoxLayout()
         self.quality_label = QLabel("图片质量:")
         self.quality_spin = QSpinBox()
         self.quality_spin.setRange(1, 100)
         self.quality_spin.setValue(100)
         self.quality_spin.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
-
-        row_param1 = QHBoxLayout()
-        row_param1.addWidget(QLabel("目标格式:"))
-        row_param1.addWidget(self.format_combo, 1)
-        row_param1.addWidget(self.fill_check)
-        row_param2 = QHBoxLayout()
-        row_param2.addWidget(self.quality_label)
-        row_param2.addWidget(self.quality_spin, 1)        
-        layout.addLayout(row_param1)
-        layout.addLayout(row_param2)
+        row_quality.addWidget(self.quality_label)
+        row_quality.addWidget(self.quality_spin, 1)        
+        layout.addLayout(row_quality)
 
         layout.addStretch()
 
@@ -57,15 +57,12 @@ class ConvertPanel(QWidget):
         self._on_format_changed()
         
     def _on_format_changed(self):
-        """目标格式切换时更新界面控件可见性"""
+        """目标格式切换"""
         fmt = self.format_combo.currentText()
-
         self.fill_check.setVisible(fmt in ("JPG", "BMP", "ICO"))
-
         show_quality = fmt in ("PNG", "JPG", "WEBP")
         self.quality_label.setVisible(show_quality)
         self.quality_spin.setVisible(show_quality)
-
         if show_quality:
             if fmt == "PNG":
                 self.quality_label.setText("图片质量:")
@@ -77,7 +74,6 @@ class ConvertPanel(QWidget):
                 self.quality_spin.setValue(100)
         else:
             self.quality_spin.setValue(0)
-
         self.changed.emit()
 
 
@@ -116,30 +112,23 @@ def run_task(file_item, settings: dict):
     """执行单个图片格式转换任务"""
     if Image is None:
         raise RuntimeError("缺少 Pillow 库，请安装: pip install Pillow")
-
     src = file_item.input_path
     target_fmt = settings.get("target_format", "png")
     quality = settings.get("quality", 90)
     fill_white = settings.get("fill_white_bg", True)
-
     out_dir = file_item.output_dir or os.path.dirname(src)
     os.makedirs(out_dir, exist_ok=True)
-
     out_path = os.path.join(out_dir, file_item.output_name)
-
     src_ext = os.path.splitext(src)[1][1:].lower()
     if src_ext == target_fmt and quality >= 90 and target_fmt not in ("gif", "ico", "bmp", "tiff"):
         shutil.copy2(src, out_path)
         file_item.status = "完成"
         return
-
     try:
         im = Image.open(src)
     except Exception as e:
         raise RuntimeError(f"无法打开图片: {e}")
-
     im = ensure_image_mode(im, target_fmt, fill_white=fill_white)
-
     save_kwargs = {}
     if target_fmt == "jpg":
         save_kwargs["quality"] = quality
@@ -153,16 +142,13 @@ def run_task(file_item, settings: dict):
         save_kwargs["optimize"] = True
     elif target_fmt == "gif":
         save_kwargs["optimize"] = True
-
     save_format = target_fmt.upper()
     if save_format == "JPG":
         save_format = "JPEG"
-
     try:
         im.save(out_path, format=save_format, **save_kwargs)
     except Exception as e:
         raise RuntimeError(f"保存失败: {e}")
     finally:
         im.close()
-
     file_item.status = "完成"

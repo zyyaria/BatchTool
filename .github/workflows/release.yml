@@ -27,7 +27,7 @@ jobs:
       - name: 检查版本号是否变化
         id: check_version
         run: |
-          CURRENT_VERSION=$(python -c "import re; print(re.search(r'^BATCH_VERSION\s*=\s*\"([^\"]+)\"', open('core/utils.py').read(), re.M).group(1))")
+          CURRENT_VERSION=$(python -c "import re; print(re.search(r'^BATCH_VERSION\s*=\s*\"([^\"]+)\"', open('core/version.py').read(), re.M).group(1))")
           TAG_NAME="v$CURRENT_VERSION"
           echo "当前版本: $TAG_NAME"
           if git ls-remote --tags origin "$TAG_NAME" | grep -q "$TAG_NAME"; then
@@ -42,7 +42,7 @@ jobs:
         if: steps.check_version.outputs.skip == 'false'
         id: get_version
         run: |
-          BATCH_VERSION=$(python -c "import re; print(re.search(r'^BATCH_VERSION\s*=\s*\"([^\"]+)\"', open('core/utils.py').read(), re.M).group(1))")
+          BATCH_VERSION=$(python -c "import re; print(re.search(r'^BATCH_VERSION\s*=\s*\"([^\"]+)\"', open('core/version.py').read(), re.M).group(1))")
           echo "BATCH_VERSION=$BATCH_VERSION" >> $GITHUB_ENV
 
       - name: 创建并推送 Tag
@@ -89,12 +89,12 @@ jobs:
           python -c "import PyInstaller; print('PyInstaller OK')"
           python -c "import PySide6; print('PySide6 OK')"
 
-      - name: 提取版本号（从 utils.py）
+      - name: 提取版本号（从 version.py）
         id: get_versions
         run: |
-          $pdfver = python -c "from core.utils import PDF_VERSION; print(f'v{PDF_VERSION}')"
-          $imgver = python -c "from core.utils import IMG_VERSION; print(f'v{IMG_VERSION}')"
-          $videover = python -c "from core.utils import VIDEO_VERSION; print(f'v{VIDEO_VERSION}')"
+          $pdfver = python -c "from core.version import PDF_VERSION; print(f'v{PDF_VERSION}')"
+          $imgver = python -c "from core.version import IMG_VERSION; print(f'v{IMG_VERSION}')"
+          $videover = python -c "from core.version import VIDEO_VERSION; print(f'v{VIDEO_VERSION}')"
           echo "PDF_VERSION=$pdfver" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
           echo "IMG_VERSION=$imgver" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
           echo "VIDEO_VERSION=$videover" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append

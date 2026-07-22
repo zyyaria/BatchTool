@@ -5,7 +5,8 @@ import sys
 from PySide6.QtGui import QIcon, QFont
 from PySide6.QtWidgets import QApplication
 from core.base import BaseMainWindow
-from core.utils import resource_path, IMG_VERSION
+from core.utils import resource_path
+from core.version import IMG_VERSION
 from core.help import get_img_help_text
 from features import IMG_FEATURES
 

@@ -24,19 +24,33 @@ class SplitPanel(QWidget):
         layout = QVBoxLayout(self)
         layout.setSpacing(8)
 
+        row_mode = QHBoxLayout()
         self.split_combo = QComboBox()
         self.split_combo.addItems(["横向", "竖向", "网格"])
         self.split_combo.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
+        row_mode.addWidget(QLabel("分切模式:"))
+        row_mode.addWidget(self.split_combo, 1)
+        layout.addLayout(row_mode)
+
+        row_split = QHBoxLayout()
         self.row_widget = QWidget()
         self.row_spin = QSpinBox()
         self.row_spin.setRange(2, 10)
         self.row_spin.setValue(2)
         self.row_spin.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
+        row_layout = QHBoxLayout(self.row_widget)
+        row_layout.setContentsMargins(0, 0, 0, 0)
+        row_layout.addWidget(QLabel("分切行数:"))
+        row_layout.addWidget(self.row_spin, 1)        
         self.col_widget = QWidget()
         self.col_spin = QSpinBox()
         self.col_spin.setRange(2, 10)
         self.col_spin.setValue(2)
         self.col_spin.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
+        col_layout = QHBoxLayout(self.col_widget)
+        col_layout.setContentsMargins(0, 0, 0, 0)
+        col_layout.addWidget(QLabel("分切列数:"))
+        col_layout.addWidget(self.col_spin, 1)        
         self.grid_widget = QWidget()
         self.grid_row_spin = QSpinBox()
         self.grid_row_spin.setRange(2, 10)
@@ -46,37 +60,24 @@ class SplitPanel(QWidget):
         self.grid_col_spin.setRange(2, 10)
         self.grid_col_spin.setValue(2)
         self.grid_col_spin.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
-        self.format_combo = QComboBox()
-        self.format_combo.addItems(["原格式", "PNG", "JPG", "WEBP"])
-        self.format_combo.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
-
-        row_param1 = QHBoxLayout()
-        row_param1.addWidget(QLabel("分切模式:"))
-        row_param1.addWidget(self.split_combo, 1)
-        row_param2 = QHBoxLayout()
-        row_param2.addWidget(self.row_widget)
-        row_param2.addWidget(self.col_widget)
-        row_param2.addWidget(self.grid_widget)
-        row_param3 = QHBoxLayout()
-        row_param3.addWidget(QLabel("目标格式:"))
-        row_param3.addWidget(self.format_combo, 1)        
-        row_layout = QHBoxLayout(self.row_widget)
-        row_layout.setContentsMargins(0, 0, 0, 0)
-        row_layout.addWidget(QLabel("分切行数:"))
-        row_layout.addWidget(self.row_spin, 1)
-        col_layout = QHBoxLayout(self.col_widget)
-        col_layout.setContentsMargins(0, 0, 0, 0)
-        col_layout.addWidget(QLabel("分切列数:"))
-        col_layout.addWidget(self.col_spin, 1)
         grid_layout = QHBoxLayout(self.grid_widget)        
         grid_layout.setContentsMargins(0, 0, 0, 0)
         grid_layout.addWidget(QLabel("行数:"))
         grid_layout.addWidget(self.grid_row_spin, 1)
         grid_layout.addWidget(QLabel("列数:"))
-        grid_layout.addWidget(self.grid_col_spin, 1)
-        layout.addLayout(row_param1)
-        layout.addLayout(row_param2)
-        layout.addLayout(row_param3)
+        grid_layout.addWidget(self.grid_col_spin, 1)        
+        row_split.addWidget(self.row_widget)
+        row_split.addWidget(self.col_widget)
+        row_split.addWidget(self.grid_widget)
+        layout.addLayout(row_split)
+
+        row_format = QHBoxLayout()
+        self.format_combo = QComboBox()
+        self.format_combo.addItems(["原格式", "PNG", "JPG", "WEBP"])
+        self.format_combo.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
+        row_format.addWidget(QLabel("目标格式:"))
+        row_format.addWidget(self.format_combo, 1)   
+        layout.addLayout(row_format)
 
         layout.addStretch()
 
@@ -91,7 +92,7 @@ class SplitPanel(QWidget):
         self._on_split_combo_changed()
 
     def _on_split_combo_changed(self):
-        """分切模式切换时显示/相应控件（行/列/网格行列）"""
+        """分切模式切换"""
         mode = self.split_combo.currentIndex()
         self.row_widget.setVisible(mode == 0)
         self.col_widget.setVisible(mode == 1)
@@ -144,22 +145,17 @@ def run_task(file_item, settings, custom_names=None):
     file_item.output_paths = []
     if Image is None:
         raise RuntimeError("缺少 Pillow 库，请安装: pip install Pillow")
-
     src = file_item.input_path
     mode = settings.get("mode", 0)
     rows = settings.get("rows", 2)
     cols = settings.get("cols", 3)
-
     out_dir = file_item.output_dir or os.path.dirname(src)
     os.makedirs(out_dir, exist_ok=True)
-
     try:
         im = Image.open(src)
     except Exception as e:
         raise RuntimeError(f"无法打开图片: {e}")
-
     w, h = im.size
-
     parts = []
     if mode == 0:
         half_h = h // 2
@@ -179,14 +175,11 @@ def run_task(file_item, settings, custom_names=None):
                 parts.append((x1, y1, x2, y2))
     else:
         raise RuntimeError("不支持的分切模式")
-
     out_name = file_item.output_name
     ext = os.path.splitext(out_name)[1][1:].lower()
     if not ext:
         ext = "png"
-
     base_name = os.path.splitext(out_name)[0]
-
     saved_files = []
     for idx, (x1, y1, x2, y2) in enumerate(parts, start=1):
         cropped = im.crop((x1, y1, x2, y2))
@@ -208,9 +201,7 @@ def run_task(file_item, settings, custom_names=None):
         cropped.save(out_path, format=save_format, quality=95, optimize=True)
         saved_files.append(out_path)
         file_item.output_paths.append(out_path)
-
     im.close()
-
     if saved_files:
         file_item.output_name = os.path.basename(saved_files[0])
         file_item.status = f"完成（生成 {len(saved_files)} 个文件）"

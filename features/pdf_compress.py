@@ -23,6 +23,7 @@ class CompressPanel(QWidget):
         layout = QVBoxLayout(self)
         layout.setSpacing(8)
 
+        row_preset = QHBoxLayout()
         self.light_btn = QPushButton("轻微")
         self.light_btn.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
         self.medium_btn = QPushButton("中等")
@@ -31,8 +32,6 @@ class CompressPanel(QWidget):
         self.strong_btn.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
         self.extreme_btn = QPushButton("极限")
         self.extreme_btn.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
-
-        row_preset = QHBoxLayout()
         row_preset.addWidget(QLabel("预设:"))
         row_preset.addWidget(self.light_btn, 1)
         row_preset.addWidget(self.medium_btn, 1)
@@ -40,46 +39,47 @@ class CompressPanel(QWidget):
         row_preset.addWidget(self.extreme_btn, 1)
         layout.addLayout(row_preset)
 
+        row_dpi = QHBoxLayout()
         self.dpi_spin = QSpinBox()
         self.dpi_spin.setRange(72, 300)
         self.dpi_spin.setValue(150)
         self.dpi_spin.setSuffix(" ppi")
         self.dpi_spin.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
+        row_dpi.addWidget(QLabel("目标分辨率:"))
+        row_dpi.addWidget(self.dpi_spin, 1)
+        layout.addLayout(row_dpi) 
+
+        row_quality = QHBoxLayout()
         self.quality_spin = QSpinBox()
         self.quality_spin.setRange(10, 100)
         self.quality_spin.setValue(75)
         self.quality_spin.setSuffix(" %")
-        self.quality_spin.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)       
+        self.quality_spin.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)  
+        row_quality.addWidget(QLabel("JPEG 质量:"))
+        row_quality.addWidget(self.quality_spin, 1)        
+        layout.addLayout(row_quality)  
+
+        row_color = QHBoxLayout()
         self.color_combo = QComboBox()
         self.color_combo.addItems(["彩色", "灰度", "黑白"])
         self.color_combo.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)         
+        row_color.addWidget(QLabel("颜色模式:"))
+        row_color.addWidget(self.color_combo, 1)
+        layout.addLayout(row_color)
 
-        row_param1 = QHBoxLayout()
-        row_param1.addWidget(QLabel("目标分辨率:"))
-        row_param1.addWidget(self.dpi_spin, 1)
-        row_param2 = QHBoxLayout()
-        row_param2.addWidget(QLabel("JPEG 质量:"))
-        row_param2.addWidget(self.quality_spin, 1)
-        row_param3 = QHBoxLayout()
-        row_param3.addWidget(QLabel("颜色模式:"))
-        row_param3.addWidget(self.color_combo, 1)
-        layout.addLayout(row_param1)     
-        layout.addLayout(row_param2)           
-        layout.addLayout(row_param3)
-
+        row_gs = QHBoxLayout()
         self.gs_label = QLabel(GS_PATH if GS_PATH else "未找到")
         self.gs_label.setWordWrap(False)
         self.gs_label.setStyleSheet("color: #555;")
         self.gs_label.setSizePolicy(QSizePolicy.Ignored, QSizePolicy.Fixed)
         if GS_PATH:
             self.gs_label.setToolTip(GS_PATH)
-        self.gs_btn = QPushButton("手动指定 Ghostscript 路径")
-        self.gs_btn.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)    
-
-        row_gs = QHBoxLayout()
         row_gs.addWidget(QLabel("Ghostscript 路径:"))
         row_gs.addWidget(self.gs_label, 1)
         layout.addLayout(row_gs)
+
+        self.gs_btn = QPushButton("手动指定 Ghostscript 路径")
+        self.gs_btn.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)    
         layout.addWidget(self.gs_btn, 1)
 
         layout.addStretch()
@@ -104,7 +104,7 @@ class CompressPanel(QWidget):
         self.changed.emit()
 
     def select_gs_path(self):
-        """手动选择 Ghostscript 可执行文件路径"""
+        """选择 Ghostscript 路径"""
         if platform.system() == "Windows":
             file_filter = "Ghostscript 可执行文件 (gswin64c.exe gswin32c.exe);;所有文件 (*.*)"
         else:

@@ -22,61 +22,62 @@ class VideoCutPanel(QWidget):
         layout = QVBoxLayout(self)
         layout.setSpacing(8)
 
-        self.start_time_edit = QTimeEdit()
-        self.start_time_edit.setDisplayFormat("HH:mm:ss")
-        self.start_time_edit.setTime(QTime(0, 0, 0))
-        self.start_time_edit.setSizePolicy(QSizePolicy.Ignored, QSizePolicy.Fixed)
-        self.end_time_edit = QTimeEdit()
-        self.end_time_edit.setDisplayFormat("HH:mm:ss")
-        self.end_time_edit.setTime(QTime(0, 0, 0))
-        self.end_time_edit.setSizePolicy(QSizePolicy.Ignored, QSizePolicy.Fixed)
+        row_time = QHBoxLayout()    
+        self.start_time = QTimeEdit()
+        self.start_time.setDisplayFormat("HH:mm:ss")
+        self.start_time.setTime(QTime(0, 0, 0))
+        self.start_time.setSizePolicy(QSizePolicy.Ignored, QSizePolicy.Fixed)
+        to_label = QLabel("至")
+        to_label.setAlignment(Qt.AlignCenter)
+        to_label.setFixedWidth(12)
+        to_label.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Fixed)             
+        self.end_time = QTimeEdit()
+        self.end_time.setDisplayFormat("HH:mm:ss")
+        self.end_time.setTime(QTime(0, 0, 0))
+        self.end_time.setSizePolicy(QSizePolicy.Ignored, QSizePolicy.Fixed)
+        row_time.addWidget(QLabel("截取时间:"))
+        row_time.addWidget(self.start_time, 1)
+        row_time.addWidget(to_label)
+        row_time.addWidget(self.end_time, 1)
+        layout.addLayout(row_time)
+
+        row_format = QHBoxLayout()   
         self.format_combo = QComboBox()
         self.format_combo.addItems(["原格式", "mp4", "mkv", "avi", "mov"])
         self.format_combo.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
         self.reencode_check = QCheckBox("重新编码")
         self.reencode_check.setChecked(False)
-        self.reencode_check.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Fixed)        
-        to_label = QLabel("至")
-        to_label.setFixedWidth(12)
-        to_label.setAlignment(Qt.AlignCenter)
-        to_label.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Fixed)
-        
-        row_param1 = QHBoxLayout()
-        row_param1.addWidget(QLabel("截取时间:"))
-        row_param1.addWidget(self.start_time_edit, 1)
-        row_param1.addWidget(to_label)
-        row_param1.addWidget(self.end_time_edit, 1)
-        row_param2 = QHBoxLayout()
-        row_param2.addWidget(QLabel("目标格式:"))
-        row_param2.addWidget(self.format_combo, 1)
-        row_param2.addWidget(self.reencode_check)        
-        layout.addLayout(row_param1)
-        layout.addLayout(row_param2)
+        self.reencode_check.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Fixed)    
+        row_format.addWidget(QLabel("目标格式:"))
+        row_format.addWidget(self.format_combo, 1)
+        row_format.addWidget(self.reencode_check) 
+        layout.addLayout(row_format)
 
+        row_ffmpeg = QHBoxLayout()    
         self.ffmpeg_label = QLabel(self.ffmpeg_path if self.ffmpeg_path else "未找到")
-        self.ffmpeg_label.setWordWrap(False)
         self.ffmpeg_label.setStyleSheet("color: #555;")
+        self.ffmpeg_label.setWordWrap(False)
         self.ffmpeg_label.setSizePolicy(QSizePolicy.Ignored, QSizePolicy.Fixed)
         if self.ffmpeg_path:
             self.ffmpeg_label.setToolTip(self.ffmpeg_path)
-        self.ffmpeg_btn = QPushButton("手动指定 FFmpeg 路径")
-        self.ffmpeg_btn.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)        
-        
-        row_ffmpeg = QHBoxLayout()
         row_ffmpeg.addWidget(QLabel("FFmpeg 路径:"))
         row_ffmpeg.addWidget(self.ffmpeg_label, 1)
         layout.addLayout(row_ffmpeg)
+            
+        self.ffmpeg_btn = QPushButton("手动指定 FFmpeg 路径")
+        self.ffmpeg_btn.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
         layout.addWidget(self.ffmpeg_btn, 1)
-
+        
         layout.addStretch()
 
-        self.start_time_edit.timeChanged.connect(self.changed)
-        self.end_time_edit.timeChanged.connect(self.changed)
+        self.start_time.timeChanged.connect(self.changed)
+        self.end_time.timeChanged.connect(self.changed)
         self.format_combo.currentIndexChanged.connect(self.changed)
         self.reencode_check.stateChanged.connect(self.changed)
         self.ffmpeg_btn.clicked.connect(self.select_ffmpeg_path)
 
     def select_ffmpeg_path(self):
+        """选择 FFmpeg 路径"""
         path, _ = QFileDialog.getOpenFileName(
             self, "选择 FFmpeg 可执行文件", "",
             "FFmpeg 可执行文件 (ffmpeg.exe);;所有文件 (*.*)"
@@ -101,8 +102,8 @@ def build_panel() -> QWidget:
 
 def collect_settings(panel: VideoCutPanel) -> dict:
     """收集面板设置"""
-    start = panel.start_time_edit.time()
-    end = panel.end_time_edit.time()
+    start = panel.start_time.time()
+    end = panel.end_time.time()
     return {
         "start_h": start.hour(),
         "start_m": start.minute(),
@@ -110,7 +111,7 @@ def collect_settings(panel: VideoCutPanel) -> dict:
         "end_h": end.hour(),
         "end_m": end.minute(),
         "end_s": end.second(),
-        "format_combo": panel.format_combo.currentText(),
+        "format": panel.format_combo.currentText(),
         "reencode": panel.reencode_check.isChecked(),
     }
 
@@ -123,12 +124,10 @@ def prepare_preview(items, settings):
     eh = settings.get("end_h", 0)
     em = settings.get("end_m", 0)
     es = settings.get("end_s", 0)
-    fmt = settings.get("format_combo", "原格式")
+    fmt = settings.get("format", "原格式")
     reencode = settings.get("reencode", False)
-
     start_str = f"{sh:02d}:{sm:02d}:{ss:02d}"
     end_str = f"{eh:02d}:{em:02d}:{es:02d}"
-
     for it in items:
         base = os.path.splitext(os.path.basename(it.input_path))[0]
         it.preview_extra = {
@@ -146,7 +145,6 @@ def cut_video(input_path, output_path, start_sec, duration_sec, reencode=False):
     ffmpeg = get_ffmpeg_path()
     if not ffmpeg:
         raise RuntimeError("未找到 FFmpeg，请安装并添加到 PATH，或手动指定路径")
-
     cmd = [ffmpeg, "-ss", str(start_sec), "-i", input_path]
     if duration_sec > 0:
         cmd.extend(["-t", str(duration_sec)])
@@ -155,7 +153,6 @@ def cut_video(input_path, output_path, start_sec, duration_sec, reencode=False):
     else:
         cmd.extend(["-c:v", "libx264", "-preset", "fast", "-c:a", "aac", "-b:a", "128k"])
     cmd.extend(["-y", output_path])
-
     subprocess.run(
         cmd,
         check=True,
@@ -175,23 +172,16 @@ def run_task(file_item, settings):
     eh = settings.get("end_h", 0)
     em = settings.get("end_m", 0)
     es = settings.get("end_s", 0)
-
     start_sec = _to_seconds(sh, sm, ss)
     end_sec = _to_seconds(eh, em, es)
-
     if end_sec <= start_sec:
         raise ValueError("结束时间必须大于开始时间")
-
     duration_sec = end_sec - start_sec
-
-    format_combo = settings.get("format_combo", "原格式")
+    format = settings.get("format", "原格式")
     reencode = settings.get("reencode", False)
-
     src = file_item.input_path
     out_dir = file_item.output_dir or os.path.dirname(src)
     os.makedirs(out_dir, exist_ok=True)
-
     out_path = os.path.join(out_dir, file_item.output_name)
-
     cut_video(src, out_path, start_sec, duration_sec, reencode)
     file_item.status = "完成"

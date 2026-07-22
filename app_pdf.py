@@ -9,7 +9,8 @@ from PySide6.QtWidgets import (
     QVBoxLayout, QHBoxLayout, QAbstractItemView
 )
 from core.base import BaseMainWindow
-from core.utils import resource_path, PDF_VERSION
+from core.utils import resource_path
+from core.version import PDF_VERSION
 from core.help import get_pdf_help_text
 from features import PDF_FEATURES
 from features.pdf_resize import detect_page_sizes, get_detect_summary_for_autoset

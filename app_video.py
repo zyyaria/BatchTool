@@ -5,7 +5,8 @@ import sys
 from PySide6.QtWidgets import QApplication
 from PySide6.QtGui import QIcon, QFont
 from core.base import BaseMainWindow
-from core.utils import resource_path, VIDEO_VERSION
+from core.utils import resource_path
+from core.version import VIDEO_VERSION
 from core.help import get_video_help_text
 from features import VIDEO_FEATURES
 

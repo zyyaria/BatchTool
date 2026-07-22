@@ -33,11 +33,18 @@ class ResizePanel(QWidget):
         layout = QVBoxLayout(self)
         layout.setSpacing(8)
 
+        row_size = QHBoxLayout()
         self.size_combo = QComboBox()
         self.size_combo.addItems(["A0", "A1", "A2", "A3", "A4", "A5", "A6", "Letter", "Legal", "自定义"])
         self.size_combo.setCurrentText("A4")
         self.size_combo.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
-        self.size_widget = QWidget()
+        row_size.addWidget(QLabel("目标尺寸:"))
+        row_size.addWidget(self.size_combo, 1)
+        layout.addLayout(row_size)
+
+        self.csize_widget = QWidget()
+        row_csize = QHBoxLayout(self.csize_widget)
+        row_csize.setContentsMargins(0, 0, 0, 0)        
         self.width_spin = QDoubleSpinBox()
         self.width_spin.setRange(0.1, 999.9)
         self.width_spin.setValue(21.0)
@@ -52,6 +59,13 @@ class ResizePanel(QWidget):
         self.height_spin.setDecimals(1)
         self.height_spin.setSuffix(" cm")
         self.height_spin.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)   
+        row_csize.addWidget(QLabel("宽度:"))
+        row_csize.addWidget(self.width_spin, 1)
+        row_csize.addWidget(QLabel("高度:"))
+        row_csize.addWidget(self.height_spin, 1)
+        layout.addWidget(self.csize_widget)
+
+        row_position = QHBoxLayout()
         self.position_combo = QComboBox()
         self.position_combo.addItems(["居中", "左上", "右上", "左下", "右下"])
         self.position_combo.setCurrentText("居中")
@@ -59,27 +73,13 @@ class ResizePanel(QWidget):
         self.orientation_check = QCheckBox("智能保持方向")
         self.orientation_check.setChecked(True)
         self.orientation_check.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Fixed)
-
-        row_param1 = QHBoxLayout()
-        row_param1.addWidget(QLabel("目标尺寸:"))
-        row_param1.addWidget(self.size_combo, 1)
-        row_param2 = QHBoxLayout(self.size_widget)
-        row_param2.setContentsMargins(0, 0, 0, 0)
-        row_param2.addWidget(QLabel("宽度:"))
-        row_param2.addWidget(self.width_spin, 1)
-        row_param2.addWidget(QLabel("高度:"))
-        row_param2.addWidget(self.height_spin, 1)
-        row_param3 = QHBoxLayout()
-        row_param3.addWidget(QLabel("内容位置:"))
-        row_param3.addWidget(self.position_combo, 1)
-        row_param3.addWidget(self.orientation_check)
-        layout.addLayout(row_param1)
-        layout.addWidget(self.size_widget)
-        layout.addLayout(row_param3)
+        row_position.addWidget(QLabel("内容位置:"))
+        row_position.addWidget(self.position_combo, 1)
+        row_position.addWidget(self.orientation_check)
+        layout.addLayout(row_position)
 
         self.detect_btn = QPushButton("检测页面尺寸")
         self.detect_btn.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
-        
         layout.addWidget(self.detect_btn, 1)
 
         layout.addStretch()
@@ -95,8 +95,9 @@ class ResizePanel(QWidget):
         self._toggle_custom_size()
 
     def _toggle_custom_size(self):
+        """目标尺寸切换"""
         is_custom = (self.size_combo.currentText() == "自定义")
-        self.size_widget.setVisible(is_custom)
+        self.csize_widget.setVisible(is_custom)
         self.changed.emit()
 
 
@@ -123,7 +124,7 @@ def collect_settings(panel: ResizePanel) -> dict:
         "page_size_name": size_name,
         "page_size": page_size,
         "position": panel.position_combo.currentText(),
-        "orientation_check": panel.orientation_check.isChecked(),
+        "orientation": panel.orientation_check.isChecked(),
     }
 
 
@@ -136,7 +137,7 @@ def prepare_preview(items, settings):
         h_cm = h_pt * 2.54 / 72
         size_name = f"{w_cm:.1f}×{h_cm:.1f}cm"
     pos = settings.get("position", "居中")
-    smart = "开启" if settings.get("orientation_check", True) else "关闭"
+    smart = "开启" if settings.get("orientation", True) else "关闭"
     for it in items:
         it.preview_extra = {"A": f"目标尺寸：{size_name}，位置{pos}，智能方向{smart}"}
 
@@ -292,7 +293,7 @@ def get_detect_summary_for_autoset(result: dict) -> str:
     return first_matched
 
 
-def _resize_pdf(input_path: str, output_path: str, page_size, position: str, orientation_check: bool):
+def _resize_pdf(input_path: str, output_path: str, page_size, position: str, orientation: bool):
     """调整 PDF 页面尺寸的核心函数"""
     target_width_pt, target_height_pt = page_size
     src_doc = fitz.open(input_path)
@@ -303,7 +304,7 @@ def _resize_pdf(input_path: str, output_path: str, page_size, position: str, ori
         orig_w = orig_rect.width
         orig_h = orig_rect.height
         tw, th = target_width_pt, target_height_pt
-        if orientation_check:
+        if orientation:
             orig_is_landscape = orig_w > orig_h
             target_is_landscape = tw > th
             if orig_is_landscape != target_is_landscape:
@@ -349,6 +350,6 @@ def run_task(file_item, settings: dict):
     if page_size is None:
         raise ValueError("未指定页面尺寸")
     position = settings.get("position", "居中")
-    smart = settings.get("orientation_check", True)
+    smart = settings.get("orientation", True)
     _resize_pdf(src, out_path, page_size, position, smart)
     file_item.status = "完成"

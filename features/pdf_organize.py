@@ -9,7 +9,7 @@ from PySide6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QLabel, QComboBox, QLineEdit,
     QSpinBox, QPushButton, QFileDialog, QCheckBox, QSizePolicy
 )
-from core.utils import parse_page_range, resource_path, sanitize_base_name
+from core.utils import parse_page_range, resource_path
 
 
 class OrganizePanel(QWidget):
@@ -19,12 +19,42 @@ class OrganizePanel(QWidget):
     def __init__(self):
         """初始化设置面板"""
         super().__init__()
-        layout = QVBoxLayout(self)
-        layout.setSpacing(8)
+        main_layout = QVBoxLayout(self)
+        main_layout.setSpacing(8)
 
-        self.action_combo = QComboBox()
-        self.action_combo.addItems(["提取页面", "插入页面", "替换页面", "拆分页面", "重排页面", "删除页面"])
-        self.action_combo.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
+        self._create_mode_row(main_layout)
+        self.extract_widget = self._create_extract_widget()
+        self.insert_widget = self._create_insert_widget()
+        self.replace_widget = self._create_replace_widget()
+        self.split_widget = self._create_split_widget()
+        self.reorder_widget = self._create_reorder_widget()
+        self.delete_widget = self._create_delete_widget()
+        main_layout.addWidget(self.extract_widget)
+        main_layout.addWidget(self.insert_widget)
+        main_layout.addWidget(self.replace_widget)
+        main_layout.addWidget(self.split_widget)
+        main_layout.addWidget(self.reorder_widget)
+        main_layout.addWidget(self.delete_widget)                                
+
+        self.detect_btn = QPushButton("检测页码")
+        self.detect_btn.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
+        main_layout.addWidget(self.detect_btn, 1)
+
+        main_layout.addStretch()
+
+        self._connect_signals()
+
+        self._on_mode_changed()
+        self._on_split_mode_changed()
+        self._on_insert_position_mode_changed()
+        self._on_reorder_position_mode_changed()        
+
+    def _create_mode_row(self, layout):
+        """顶部：操作模式 + 按序插入 + 提取后删除"""
+        row = QHBoxLayout()
+        self.mode_combo = QComboBox()
+        self.mode_combo.addItems(["提取页面", "插入页面", "替换页面", "拆分页面", "重排页面", "删除页面"])
+        self.mode_combo.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
         self.insert_check = QCheckBox("按序插入")
         self.insert_check.setChecked(False)
         self.insert_check.setToolTip("将源文件的第N页插入到列表中第N个文件的指定位置")
@@ -32,28 +62,33 @@ class OrganizePanel(QWidget):
         self.delete_check = QCheckBox("提取后删除页面")
         self.delete_check.setChecked(False)
         self.delete_check.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Fixed)
+        row.addWidget(QLabel("操作模式:"))
+        row.addWidget(self.mode_combo, 1)
+        row.addWidget(self.insert_check)
+        row.addWidget(self.delete_check)
+        layout.addLayout(row)
 
-        row_param1 = QHBoxLayout()
-        row_param1.addWidget(QLabel("操作模式:"))
-        row_param1.addWidget(self.action_combo, 1)
-        row_param1.addWidget(self.insert_check)
-        row_param1.addWidget(self.delete_check)
-        layout.addLayout(row_param1)
-
-        self.extract_widget = QWidget()
+    def _create_extract_widget(self):
+        """提取页面"""
+        widget = QWidget()
+        layout = QVBoxLayout(widget)
+        layout.setContentsMargins(0, 0, 0, 0)
+        row = QHBoxLayout()
         self.extract_range_edit = QLineEdit()
         self.extract_range_edit.setPlaceholderText("1-3,5,8-10（留空=全部）")
         self.extract_range_edit.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
+        row.addWidget(QLabel("页面范围:"))
+        row.addWidget(self.extract_range_edit, 1)
+        layout.addLayout(row)
+        return widget
+    
+    def _create_insert_widget(self):
+        """插入页面"""
+        widget = QWidget()
+        layout = QVBoxLayout(widget)
+        layout.setContentsMargins(0, 0, 0, 0)
 
-        row_extract = QHBoxLayout()
-        row_extract.addWidget(QLabel("页面范围:"))
-        row_extract.addWidget(self.extract_range_edit, 1)
-        extract_layout = QVBoxLayout(self.extract_widget)
-        extract_layout.setContentsMargins(0, 0, 0, 0)
-        extract_layout.addLayout(row_extract)
-        layout.addWidget(self.extract_widget)
-
-        self.insert_widget = QWidget()
+        row_file = QHBoxLayout()
         self.insert_file_edit = QLineEdit()
         self.insert_file_edit.setPlaceholderText("点击右侧图标选择PDF文件")
         self.insert_file_edit.setReadOnly(True)
@@ -63,6 +98,11 @@ class OrganizePanel(QWidget):
         insert_file_action.setToolTip("选择要插入的PDF文件")
         insert_file_action.triggered.connect(self._select_insert_file)
         self.insert_file_edit.addAction(insert_file_action, QLineEdit.TrailingPosition)
+        row_file.addWidget(QLabel("插入文件:"))
+        row_file.addWidget(self.insert_file_edit, 1)
+        layout.addLayout(row_file)
+
+        row_pos = QHBoxLayout()
         self.insert_position_combo = QComboBox()
         self.insert_position_combo.addItems(["自定义", "最后一页"])
         self.insert_position_combo.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
@@ -74,95 +114,106 @@ class OrganizePanel(QWidget):
         self.insert_dir_combo.addItems(["之前", "之后"])
         self.insert_dir_combo.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
         self.insert_position_widget = QWidget()
-
-        row_insert1 = QHBoxLayout()
-        row_insert1.addWidget(QLabel("插入文件:"))
-        row_insert1.addWidget(self.insert_file_edit, 1)
-        row_insert2 = QHBoxLayout()
-        row_insert2.addWidget(QLabel("插入位置:"))
-        row_insert2.addWidget(self.insert_position_combo)
-        row_insert2.addWidget(self.insert_position_widget)
-        row_insert2.addWidget(self.insert_dir_combo)
         insert_page_layout = QHBoxLayout(self.insert_position_widget)
         insert_page_layout.setContentsMargins(0, 0, 0, 0)
         insert_page_layout.addWidget(QLabel("第"))
         insert_page_layout.addWidget(self.insert_page_edit)
-        insert_page_layout.addWidget(QLabel("页"))         
-        insert_layout = QVBoxLayout(self.insert_widget)
-        insert_layout.setContentsMargins(0, 0, 0, 0)
-        insert_layout.addLayout(row_insert1)
-        insert_layout.addLayout(row_insert2)
-        layout.addWidget(self.insert_widget)
+        insert_page_layout.addWidget(QLabel("页"))
+        row_pos.addWidget(QLabel("插入位置:"))
+        row_pos.addWidget(self.insert_position_combo)
+        row_pos.addWidget(self.insert_position_widget)
+        row_pos.addWidget(self.insert_dir_combo)
+        layout.addLayout(row_pos)
+        return widget    
 
-        self.replace_widget = QWidget()
+    def _create_replace_widget(self):
+        """替换页面"""
+        widget = QWidget()
+        layout = QVBoxLayout(widget)
+        layout.setContentsMargins(0, 0, 0, 0)
+
+        row_target = QHBoxLayout()
         self.replace_range_edit = QLineEdit()
         self.replace_range_edit.setPlaceholderText("1-3,5,8-10")
         self.replace_range_edit.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
+        row_target.addWidget(QLabel("替换页面:"))
+        row_target.addWidget(self.replace_range_edit, 1)
+        layout.addLayout(row_target)
+
+        row_file = QHBoxLayout()
         self.replace_file_edit = QLineEdit()
         self.replace_file_edit.setPlaceholderText("点击右侧图标选择PDF文件")
         self.replace_file_edit.setReadOnly(True)
         self.replace_file_edit.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
-        replace_file_action = QAction(self)
-        replace_file_action.setIcon(QIcon(resource_path("assets/folder.png")))
-        replace_file_action.setToolTip("选择来源PDF文件")
-        replace_file_action.triggered.connect(self._select_replace_file)
-        self.replace_file_edit.addAction(replace_file_action, QLineEdit.TrailingPosition)
+        replace_file_mode = QAction(self)
+        replace_file_mode.setIcon(QIcon(resource_path("assets/folder.png")))
+        replace_file_mode.setToolTip("选择来源PDF文件")
+        replace_file_mode.triggered.connect(self._select_replace_file)
+        self.replace_file_edit.addAction(replace_file_mode, QLineEdit.TrailingPosition)
+        row_file.addWidget(QLabel("替换文件:"))
+        row_file.addWidget(self.replace_file_edit, 1)
+        layout.addLayout(row_file)
+
+        row_source = QHBoxLayout()
         self.replace_source_edit = QLineEdit()
         self.replace_source_edit.setPlaceholderText("1-3,5（留空=全部）")
         self.replace_source_edit.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
+        row_source.addWidget(QLabel("使用页面:"))
+        row_source.addWidget(self.replace_source_edit, 1)
+        layout.addLayout(row_source)
+        return widget
 
-        row_replace1 = QHBoxLayout()
-        row_replace1.addWidget(QLabel("替换页面:"))
-        row_replace1.addWidget(self.replace_range_edit, 1)
-        row_replace2 = QHBoxLayout()
-        row_replace2.addWidget(QLabel("替换文件:"))
-        row_replace2.addWidget(self.replace_file_edit, 1)
-        row_replace3 = QHBoxLayout()
-        row_replace3.addWidget(QLabel("使用页面:"))
-        row_replace3.addWidget(self.replace_source_edit, 1)
-        replace_layout = QVBoxLayout(self.replace_widget)
-        replace_layout.setContentsMargins(0, 0, 0, 0)    
-        replace_layout.addLayout(row_replace1)
-        replace_layout.addLayout(row_replace2)
-        replace_layout.addLayout(row_replace3)
-        layout.addWidget(self.replace_widget)
+    def _create_split_widget(self):
+        """拆分页面"""
+        widget = QWidget()
+        layout = QVBoxLayout(widget)
+        layout.setContentsMargins(0, 0, 0, 0)
 
-        self.split_widget = QWidget()
+        row = QHBoxLayout()
         self.split_combo = QComboBox()
         self.split_combo.addItems(["按固定页数", "按指定页面范围"])
         self.split_combo.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
+        row.addWidget(QLabel("拆分方式:"))
+        row.addWidget(self.split_combo, 1)
+        layout.addLayout(row)
+
         self.split_count_widget = QWidget()
+        count_layout = QHBoxLayout(self.split_count_widget)
+        count_layout.setContentsMargins(0, 0, 0, 0)
         self.split_count_spin = QSpinBox()
         self.split_count_spin.setRange(1, 9999)
         self.split_count_spin.setValue(5)
-        self.split_count_spin.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)      
+        self.split_count_spin.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
+        count_layout.addWidget(QLabel("每份页数:"))
+        count_layout.addWidget(self.split_count_spin, 1)
+        layout.addWidget(self.split_count_widget)
+
         self.split_range_widget = QWidget()
+        range_layout = QHBoxLayout(self.split_range_widget)
+        range_layout.setContentsMargins(0, 0, 0, 0)
         self.split_range_edit = QLineEdit()
         self.split_range_edit.setPlaceholderText("1-3,4-6,7-9")
-        self.split_range_edit.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)       
+        self.split_range_edit.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
+        range_layout.addWidget(QLabel("页面范围:"))
+        range_layout.addWidget(self.split_range_edit, 1)
+        layout.addWidget(self.split_range_widget)
+        return widget
 
-        row_split = QHBoxLayout()
-        row_split.addWidget(QLabel("拆分方式:"))
-        row_split.addWidget(self.split_combo, 1)
-        split_count_layout = QHBoxLayout(self.split_count_widget)
-        split_count_layout.setContentsMargins(0, 0, 0, 0)
-        split_count_layout.addWidget(QLabel("每份页数:"))
-        split_count_layout.addWidget(self.split_count_spin, 1)       
-        split_range_layout = QHBoxLayout(self.split_range_widget)
-        split_range_layout.setContentsMargins(0, 0, 0, 0)
-        split_range_layout.addWidget(QLabel("页面范围:"))
-        split_range_layout.addWidget(self.split_range_edit, 1)         
-        split_layout = QVBoxLayout(self.split_widget)
-        split_layout.setContentsMargins(0, 0, 0, 0)
-        split_layout.addLayout(row_split)
-        split_layout.addWidget(self.split_count_widget)        
-        split_layout.addWidget(self.split_range_widget)
-        layout.addWidget(self.split_widget)
+    def _create_reorder_widget(self):
+        """重排页面"""
+        widget = QWidget()
+        layout = QVBoxLayout(widget)
+        layout.setContentsMargins(0, 0, 0, 0)
 
-        self.reorder_widget = QWidget()
+        row_range = QHBoxLayout()
         self.reorder_range_edit = QLineEdit()
         self.reorder_range_edit.setPlaceholderText("3-5")
         self.reorder_range_edit.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
+        row_range.addWidget(QLabel("页面范围:"))
+        row_range.addWidget(self.reorder_range_edit, 1)
+        layout.addLayout(row_range)
+
+        row_pos = QHBoxLayout()
         self.reorder_position_combo = QComboBox()
         self.reorder_position_combo.addItems(["自定义", "最后一页"])
         self.reorder_position_combo.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
@@ -173,49 +224,39 @@ class OrganizePanel(QWidget):
         self.reorder_dir_combo = QComboBox()
         self.reorder_dir_combo.addItems(["之前", "之后"])
         self.reorder_dir_combo.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
-        self.reorder_position_widget = QWidget()    
-            
-        row_reorder1 = QHBoxLayout()
-        row_reorder1.addWidget(QLabel("页面范围:"))
-        row_reorder1.addWidget(self.reorder_range_edit, 1)        
-        row_reorder2 = QHBoxLayout()
-        row_reorder2.addWidget(QLabel("插入位置:"))
-        row_reorder2.addWidget(self.reorder_position_combo)
-        row_reorder2.addWidget(self.reorder_position_widget)
-        row_reorder2.addWidget(self.reorder_dir_combo)          
+        self.reorder_position_widget = QWidget()
         reorder_page_layout = QHBoxLayout(self.reorder_position_widget)
         reorder_page_layout.setContentsMargins(0, 0, 0, 0)
         reorder_page_layout.addWidget(QLabel("第"))
         reorder_page_layout.addWidget(self.reorder_page_edit)
-        reorder_page_layout.addWidget(QLabel("页"))            
-        reorder_layout = QVBoxLayout(self.reorder_widget)
-        reorder_layout.setContentsMargins(0, 0, 0, 0)    
-        reorder_layout.addLayout(row_reorder1)
-        reorder_layout.addLayout(row_reorder2)
-        layout.addWidget(self.reorder_widget)
+        reorder_page_layout.addWidget(QLabel("页"))
+        row_pos.addWidget(QLabel("插入位置:"))
+        row_pos.addWidget(self.reorder_position_combo)
+        row_pos.addWidget(self.reorder_position_widget)
+        row_pos.addWidget(self.reorder_dir_combo)
+        layout.addLayout(row_pos)
+        return widget
 
-        self.delete_widget = QWidget()
+    def _create_delete_widget(self):
+        """删除页面"""
+        widget = QWidget()
+        layout = QVBoxLayout(widget)
+        layout.setContentsMargins(0, 0, 0, 0)
+
+        row = QHBoxLayout()
         self.delete_range_edit = QLineEdit()
         self.delete_range_edit.setPlaceholderText("1-3,5,8-10")
         self.delete_range_edit.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
+        row.addWidget(QLabel("页面范围:"))
+        row.addWidget(self.delete_range_edit, 1)
+        layout.addLayout(row)
+        return widget
 
-        row_delete = QHBoxLayout()
-        row_delete.addWidget(QLabel("页面范围:"))
-        row_delete.addWidget(self.delete_range_edit, 1)
-        delete_layout = QVBoxLayout(self.delete_widget)
-        delete_layout.setContentsMargins(0, 0, 0, 0)  
-        delete_layout.addLayout(row_delete)            
-        layout.addWidget(self.delete_widget)
 
-        self.detect_btn = QPushButton("检测页码")
-        self.detect_btn.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
-        
-        layout.addWidget(self.detect_btn, 1)
-
-        layout.addStretch()
-
-        self.action_combo.currentIndexChanged.connect(self._on_mode_changed)
-        self.action_combo.currentIndexChanged.connect(self.changed)
+    def _connect_signals(self):
+        """"信号连接"""
+        self.mode_combo.currentIndexChanged.connect(self._on_mode_changed)
+        self.mode_combo.currentIndexChanged.connect(self.changed)
         self.extract_range_edit.textChanged.connect(self.changed)
         self.delete_check.stateChanged.connect(self.changed)
         self.insert_file_edit.textChanged.connect(self.changed)
@@ -239,21 +280,16 @@ class OrganizePanel(QWidget):
         self.insert_check.stateChanged.connect(self.changed)
         self.detect_btn.clicked.connect(self.detect_page_signal.emit)
 
-        self._on_mode_changed()
-        self._on_split_mode_changed()
-        self._on_insert_position_mode_changed()
-        self._on_reorder_position_mode_changed()
-
     def _on_mode_changed(self):
-        """操作模式切换时显示对应的设置控件"""
-        idx = self.action_combo.currentIndex()
+        """操作模式切换"""
+        idx = self.mode_combo.currentIndex()
         self._show_only_widget(idx)
         self.insert_check.setVisible(idx == 1)
         self.delete_check.setVisible(idx == 0)
         self.changed.emit()
 
     def _show_only_widget(self, index):
-        """只显示指定索引对应的设置控件，隐藏其他"""
+        """只显示操作模式对应的设置"""
         widgets = [
             self.extract_widget,
             self.insert_widget,
@@ -266,20 +302,20 @@ class OrganizePanel(QWidget):
             w.setVisible(i == index)
 
     def _on_split_mode_changed(self):
-        """拆分方式切换时显示/隐藏固定页数或页码范围控件"""
+        """拆分方式切换"""
         is_fixed = self.split_combo.currentIndex() == 0
         self.split_count_widget.setVisible(is_fixed)
         self.split_range_widget.setVisible(not is_fixed)
         self.changed.emit()
 
     def _on_insert_position_mode_changed(self):
-        """插入位置模式切换时显示/隐藏自定义页码控件"""
+        """插入位置模式切换"""
         is_custom = self.insert_position_combo.currentIndex() == 0
         self.insert_position_widget.setVisible(is_custom)
         self.changed.emit()
 
     def _on_reorder_position_mode_changed(self):
-        """重排位置模式切换时显示/隐藏自定义页码控件"""
+        """重排位置模式切换"""
         is_custom = self.reorder_position_combo.currentIndex() == 0
         self.reorder_position_widget.setVisible(is_custom)
         self.changed.emit()
@@ -307,7 +343,7 @@ def build_panel() -> QWidget:
 def collect_settings(panel: OrganizePanel) -> dict:
     """收集面板设置"""
     return {
-        "mode": panel.action_combo.currentIndex(),
+        "mode": panel.mode_combo.currentIndex(),
         "range_edit": panel.extract_range_edit.text().strip(),
         "delete_check": panel.delete_check.isChecked(),
         "insert_file": panel.insert_file_edit.text().strip(),
@@ -334,7 +370,6 @@ def prepare_preview(items, settings):
     mode_idx = settings.get("mode", 0)
     mode_names = ["提取页面", "插入页面", "替换页面", "拆分页面", "重排页面", "删除页面"]
     mode_name = mode_names[mode_idx] if mode_idx < len(mode_names) else "未知"
-
     extra = []
     if mode_idx == 0: 
         range_text = settings.get("range_edit", "")
@@ -376,9 +411,7 @@ def prepare_preview(items, settings):
     elif mode_idx == 5:
         range_text = settings.get("delete_range", "")
         extra.append(f"删除页：{range_text}")
-
     extra_text = "，".join(extra) if extra else ""
-
     for it in items:
         it.preview_extra = {"A": f"页面操作({mode_name})：{extra_text}"}
 
@@ -433,27 +466,21 @@ def _insert_pages(target_path: str, src_path: str, insert_idx: int, out_path: st
     reader_target = PdfReader(target_path)
     reader_src = PdfReader(src_path)
     writer = PdfWriter()
-
     total_target = len(reader_target.pages)
     if total_target == 0:
         raise ValueError("目标文件没有页面")
-
     src_pages = list(reader_src.pages)
     if not src_pages:
         raise ValueError("来源文件没有页面")
-
     target_pages = list(reader_target.pages)
-
     for i in range(total_target):
         if i == insert_idx:
             for sp in src_pages:
                 writer.add_page(sp)
         writer.add_page(target_pages[i])
-
     if insert_idx >= total_target:
         for sp in src_pages:
             writer.add_page(sp)
-
     with open(out_path, "wb") as f:
         writer.write(f)
 
@@ -462,21 +489,16 @@ def _insert_single_page(target_path: str, page_to_insert, insert_idx: int, out_p
     """在目标 PDF 的指定位置插入单页"""
     reader_target = PdfReader(target_path)
     writer = PdfWriter()
-
     total_target = len(reader_target.pages)
     if total_target == 0:
         raise ValueError("目标文件没有页面")
-
     target_pages = list(reader_target.pages)
-
     for i in range(total_target):
         if i == insert_idx:
             writer.add_page(page_to_insert)
         writer.add_page(target_pages[i])
-
     if insert_idx >= total_target:
         writer.add_page(page_to_insert)
-
     with open(out_path, "wb") as f:
         writer.write(f)
 
@@ -486,16 +508,13 @@ def _replace_pages(target_path: str, src_path: str, target_indices: list, src_in
     reader_target = PdfReader(target_path)
     reader_src = PdfReader(src_path)
     writer = PdfWriter()
-
     target_pages = list(reader_target.pages)
     src_pages = []
     for idx in src_indices:
         if 0 <= idx < len(reader_src.pages):
             src_pages.append(reader_src.pages[idx])
-
     if not src_pages:
         raise ValueError("来源页面为空")
-
     target_idx = 0
     src_idx = 0
     while target_idx < len(target_pages):
@@ -508,7 +527,6 @@ def _replace_pages(target_path: str, src_path: str, target_indices: list, src_in
         else:
             writer.add_page(target_pages[target_idx])
         target_idx += 1
-
     with open(out_path, "wb") as f:
         writer.write(f)
 
@@ -562,23 +580,18 @@ def _reorder_pages(src_path: str, out_path: str, range_indices: list, insert_idx
         raise ValueError("文件没有页面")
     if not range_indices:
         raise ValueError("未指定要移动的页面")
-
     range_set = set(range_indices)
     remaining = []
     moved_pages = []
-
     for i in range(total):
         if i in range_set:
             moved_pages.append(reader.pages[i])
         else:
             remaining.append(reader.pages[i])
-
     if not moved_pages:
         raise ValueError("未找到要移动的页面")
-
     if insert_idx >= len(remaining):
         insert_idx = len(remaining)
-
     writer = PdfWriter()
     for i in range(len(remaining)):
         if i == insert_idx:
@@ -588,7 +601,6 @@ def _reorder_pages(src_path: str, out_path: str, range_indices: list, insert_idx
     if insert_idx >= len(remaining):
         for p in moved_pages:
             writer.add_page(p)
-
     with open(out_path, "wb") as f:
         writer.write(f)
 
@@ -640,10 +652,8 @@ def run_batch(items, settings, get_output_dir, get_output_name_for_group,
     """批量组织 PDF 页面"""
     if not items:
         return []
-
     mode = settings.get("mode", 0)
     output_files = []
-
     if mode == 0:  
         range_text = settings.get("range_edit", "")
         delete_check = settings.get("delete_check", False)
@@ -652,7 +662,6 @@ def run_batch(items, settings, get_output_dir, get_output_name_for_group,
                 if log_callback:
                     log_callback("⛔ 用户终止任务")
                 break
-
             src = item.input_path
             reader = PdfReader(src)
             total_pages = len(reader.pages)
@@ -663,78 +672,71 @@ def run_batch(items, settings, get_output_dir, get_output_name_for_group,
             base_name = os.path.splitext(item.output_name)[0] if item.output_name else os.path.splitext(os.path.basename(src))[0]
             out_path = os.path.join(out_dir, f"{base_name}_提取.pdf")
             _extract_pages(src, out_path, indices)
-            item.output_name = os.path.basename(out_path)
-            item.output_dir = out_dir
-            item.status = "完成"
-            output_files.append(out_path)
-
+            output_paths = [out_path]
             if delete_check:
                 remaining_path = os.path.join(out_dir, f"{base_name}_剩余.pdf")
                 _extract_remaining_pages(src, remaining_path, indices)
-
+                output_paths.append(remaining_path)
+            item.output_name = os.path.basename(out_path)
+            item.output_dir = out_dir
+            item.status = "完成"
+            item.output_paths = output_paths
+            output_files.extend(output_paths) 
     elif mode == 1: 
         src_path = settings.get("insert_file", "")
         if not src_path:
             raise ValueError("请选择要插入的PDF文件")
         if not os.path.exists(src_path):
             raise ValueError(f"文件不存在: {src_path}")
-
         pos_mode = settings.get("insert_position_mode", 0)
         pos_page = settings.get("insert_position_page", 1)
         pos_dir = settings.get("insert_position_dir", 0)
         sequential = settings.get("sequential_insert", False)
-
         if sequential:
             reader_src = PdfReader(src_path)
             src_pages = list(reader_src.pages)
             total_src_pages = len(src_pages)
             total_targets = len(items)
-
             if total_src_pages != total_targets:
                 raise ValueError(f"源文件有 {total_src_pages} 页，但目标文件有 {total_targets} 个，数量不匹配")
-
             for idx, item in enumerate(items):
                 if stop_check and stop_check():
                     if log_callback:
                         log_callback("⛔ 用户终止任务")
                     break
-
                 target_path = item.input_path
                 page_to_insert = src_pages[idx]
                 reader_target = PdfReader(target_path)
                 total_target_pages = len(reader_target.pages)
                 insert_idx = _get_insert_position(total_target_pages, pos_mode, pos_page, pos_dir)
-
                 out_dir = get_output_dir(item)
                 base_name = os.path.splitext(item.output_name)[0] if item.output_name else os.path.splitext(os.path.basename(target_path))[0]
                 out_path = os.path.join(out_dir, f"{base_name}_插入.pdf")
                 _insert_single_page(target_path, page_to_insert, insert_idx, out_path)
                 item.output_name = os.path.basename(out_path)
                 item.output_dir = out_dir
+                item.output_paths = [out_path]
                 item.status = "完成"
                 output_files.append(out_path)
-
         else:
             for item in items:
                 if stop_check and stop_check():
                     if log_callback:
                         log_callback("⛔ 用户终止任务")
                     break
-
                 target_path = item.input_path
                 reader_target = PdfReader(target_path)
                 total_target_pages = len(reader_target.pages)
                 insert_idx = _get_insert_position(total_target_pages, pos_mode, pos_page, pos_dir)
-
                 out_dir = get_output_dir(item)
                 base_name = os.path.splitext(item.output_name)[0] if item.output_name else os.path.splitext(os.path.basename(target_path))[0]
                 out_path = os.path.join(out_dir, f"{base_name}_插入.pdf")
                 _insert_pages(target_path, src_path, insert_idx, out_path)
                 item.output_name = os.path.basename(out_path)
                 item.output_dir = out_dir
+                item.output_paths = [out_path]
                 item.status = "完成"
                 output_files.append(out_path)
-
     elif mode == 2:  
         target_text = settings.get("replace_target", "")
         if not target_text:
@@ -744,7 +746,6 @@ def run_batch(items, settings, get_output_dir, get_output_name_for_group,
             raise ValueError("请选择来源PDF文件")
         if not os.path.exists(src_path):
             raise ValueError(f"文件不存在: {src_path}")
-
         reader_src = PdfReader(src_path)
         source_text = settings.get("replace_source", "")
         if not source_text.strip():
@@ -753,13 +754,11 @@ def run_batch(items, settings, get_output_dir, get_output_name_for_group,
             src_indices = parse_page_range(source_text, len(reader_src.pages))
         if not src_indices:
             raise ValueError("来源页面范围无效")
-
         for item in items:
             if stop_check and stop_check():
                 if log_callback:
                     log_callback("⛔ 用户终止任务")
                 break
-
             src = item.input_path
             reader = PdfReader(src)
             total_pages = len(reader.pages)
@@ -772,9 +771,9 @@ def run_batch(items, settings, get_output_dir, get_output_name_for_group,
             _replace_pages(src, src_path, target_indices, src_indices, out_path)
             item.output_name = os.path.basename(out_path)
             item.output_dir = out_dir
+            item.output_paths = [out_path]
             item.status = "完成"
             output_files.append(out_path)
-
     elif mode == 3:  
         split_mode = settings.get("split_mode", 0)
         custom_names = settings.get("custom_names", [])
@@ -783,7 +782,6 @@ def run_batch(items, settings, get_output_dir, get_output_name_for_group,
                 if log_callback:
                     log_callback("⛔ 用户终止任务")
                 break
-
             src = item.input_path
             out_dir = get_output_dir(item)
             base_name = os.path.splitext(item.output_name)[0] if item.output_name else os.path.splitext(os.path.basename(src))[0]
@@ -803,12 +801,11 @@ def run_batch(items, settings, get_output_dir, get_output_name_for_group,
                         new_path = os.path.join(out_dir, new_name)
                         os.rename(old_path, new_path)
                         files[idx] = new_path
-            for f in files:
-                output_files.append(f)
+            output_files.extend(files)
+            item.output_paths = files
             item.output_name = os.path.basename(files[0]) if files else ""
             item.output_dir = out_dir
             item.status = f"完成（生成 {len(files)} 个文件）"
-
     elif mode == 4:  
         range_text = settings.get("reorder_range", "")
         if not range_text:
@@ -816,20 +813,17 @@ def run_batch(items, settings, get_output_dir, get_output_name_for_group,
         pos_mode = settings.get("reorder_position_mode", 0)
         target_page = settings.get("reorder_target_page", 1)
         position_dir = settings.get("reorder_dir", 0)
-
         for item in items:
             if stop_check and stop_check():
                 if log_callback:
                     log_callback("⛔ 用户终止任务")
                 break
-
             src = item.input_path
             reader = PdfReader(src)
             total_pages = len(reader.pages)
             range_indices = parse_page_range(range_text, total_pages)
             if not range_indices:
                 raise ValueError("页面范围无效")
-
             if pos_mode == 1:
                 insert_idx = total_pages - 1
                 if position_dir == 1:
@@ -842,7 +836,6 @@ def run_batch(items, settings, get_output_dir, get_output_name_for_group,
                     insert_idx = total_pages
                 if position_dir == 1:
                     insert_idx = min(insert_idx + 1, total_pages)
-
             range_min = min(range_indices)
             range_max = max(range_indices)
             if insert_idx > range_max:
@@ -851,18 +844,16 @@ def run_batch(items, settings, get_output_dir, get_output_name_for_group,
                 pass
             else:
                 insert_idx = range_min
-
             insert_idx = max(0, min(insert_idx, total_pages - len(range_indices)))
-
             out_dir = get_output_dir(item)
             base_name = os.path.splitext(item.output_name)[0] if item.output_name else os.path.splitext(os.path.basename(src))[0]
             out_path = os.path.join(out_dir, f"{base_name}_重排.pdf")
             _reorder_pages(src, out_path, range_indices, insert_idx)
             item.output_name = os.path.basename(out_path)
             item.output_dir = out_dir
+            item.output_paths = [out_path]
             item.status = "完成"
             output_files.append(out_path)
-
     elif mode == 5: 
         range_text = settings.get("delete_range", "")
         if not range_text:
@@ -872,7 +863,6 @@ def run_batch(items, settings, get_output_dir, get_output_name_for_group,
                 if log_callback:
                     log_callback("⛔ 用户终止任务")
                 break
-
             src = item.input_path
             reader = PdfReader(src)
             total_pages = len(reader.pages)
@@ -885,7 +875,7 @@ def run_batch(items, settings, get_output_dir, get_output_name_for_group,
             _delete_pages(src, out_path, range_indices)
             item.output_name = os.path.basename(out_path)
             item.output_dir = out_dir
+            item.output_paths = [out_path]
             item.status = "完成"
             output_files.append(out_path)
-
     return output_files

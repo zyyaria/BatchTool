@@ -7,12 +7,6 @@ import json
 from typing import List
 
 
-PDF_VERSION = "1.7.2"
-IMG_VERSION = "1.7.0"
-VIDEO_VERSION = "1.3.2"
-BATCH_VERSION = "1.3.2"
-
-
 def resource_path(relative_path):
     """获取资源文件的绝对路径"""
     try:

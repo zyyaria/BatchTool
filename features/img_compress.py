@@ -25,6 +25,7 @@ class CompressPanel(QWidget):
         layout = QVBoxLayout(self)
         layout.setSpacing(8)
 
+        row_preset = QHBoxLayout()
         self.light_btn = QPushButton("轻度")
         self.light_btn.clicked.connect(lambda: self._apply_preset(85, 100, False, 256, 1, True))
         self.light_btn.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
@@ -37,8 +38,6 @@ class CompressPanel(QWidget):
         self.extreme_btn = QPushButton("极限")
         self.extreme_btn.clicked.connect(lambda: self._apply_preset(40, 60, False, 32, 3, True))
         self.extreme_btn.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
-       
-        row_preset = QHBoxLayout()
         row_preset.addWidget(QLabel("预设:"))
         row_preset.addWidget(self.light_btn, 1)
         row_preset.addWidget(self.medium_btn, 1)
@@ -46,12 +45,19 @@ class CompressPanel(QWidget):
         row_preset.addWidget(self.extreme_btn, 1)
         layout.addLayout(row_preset)
 
+        row_format = QHBoxLayout()
         self.format_combo = QComboBox()
         self.format_combo.addItems(["原格式", "JPG", "PNG", "WEBP", "GIF"])
         self.format_combo.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
         self.gray_check = QCheckBox("转为灰度")
         self.gray_check.setChecked(False)   
         self.gray_check.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Fixed) 
+        row_format.addWidget(QLabel("目标格式:"))
+        row_format.addWidget(self.format_combo, 1)
+        row_format.addWidget(self.gray_check)
+        layout.addLayout(row_format)
+
+        row_quality = QHBoxLayout()
         self.quality_spin = QSpinBox()
         self.quality_spin.setRange(1, 100)
         self.quality_spin.setValue(75)
@@ -62,10 +68,22 @@ class CompressPanel(QWidget):
         self.scale_spin.setValue(100)
         self.scale_spin.setSuffix(" %")
         self.scale_spin.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
+        row_quality.addWidget(QLabel("质量:"))
+        row_quality.addWidget(self.quality_spin, 1)
+        row_quality.addWidget(QLabel("缩放:"))
+        row_quality.addWidget(self.scale_spin, 1)
+        layout.addLayout(row_quality)
+
+        row_color = QHBoxLayout()
         self.color_spin = QSpinBox()
         self.color_spin.setRange(2, 256)
         self.color_spin.setValue(256)
         self.color_spin.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
+        row_color.addWidget(QLabel("最大颜色数:"))
+        row_color.addWidget(self.color_spin, 1)
+        layout.addLayout(row_color)
+
+        row_frame = QHBoxLayout()
         self.frame_spin = QSpinBox()
         self.frame_spin.setRange(1, 10)
         self.frame_spin.setValue(1)
@@ -73,27 +91,10 @@ class CompressPanel(QWidget):
         self.animation_check = QCheckBox("保留动画")
         self.animation_check.setChecked(True)      
         self.animation_check.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Fixed)  
-
-        row_param1 = QHBoxLayout()
-        row_param1.addWidget(QLabel("目标格式:"))
-        row_param1.addWidget(self.format_combo, 1)
-        row_param1.addWidget(self.gray_check)
-        row_param2 = QHBoxLayout()
-        row_param2.addWidget(QLabel("质量:"))
-        row_param2.addWidget(self.quality_spin, 1)
-        row_param2.addWidget(QLabel("缩放:"))
-        row_param2.addWidget(self.scale_spin, 1)
-        row_param3 = QHBoxLayout()
-        row_param3.addWidget(QLabel("最大颜色数:"))
-        row_param3.addWidget(self.color_spin, 1)
-        row_param4 = QHBoxLayout()
-        row_param4.addWidget(QLabel("抽帧间隔:"))
-        row_param4.addWidget(self.frame_spin, 1)
-        row_param4.addWidget(self.animation_check)        
-        layout.addLayout(row_param1)
-        layout.addLayout(row_param2)
-        layout.addLayout(row_param3)
-        layout.addLayout(row_param4)
+        row_frame.addWidget(QLabel("抽帧间隔:"))
+        row_frame.addWidget(self.frame_spin, 1)
+        row_frame.addWidget(self.animation_check)        
+        layout.addLayout(row_frame)
 
         layout.addStretch()
 
@@ -165,7 +166,6 @@ def run_task(file_item, settings: dict):
     """执行单个图片压缩任务"""
     if Image is None:
         raise RuntimeError("缺少 Pillow 库，请安装: pip install Pillow")
-
     src = file_item.input_path
     quality = settings.get("quality", 75)
     scale = settings.get("scale", 1.0)
@@ -174,19 +174,14 @@ def run_task(file_item, settings: dict):
     max_colors = settings.get("max_colors", 256)
     frame_interval = settings.get("frame_interval", 1)
     keep_animation = settings.get("keep_animation", True)
-
     out_dir = file_item.output_dir or os.path.dirname(src)
     os.makedirs(out_dir, exist_ok=True)
-
     out_path = os.path.join(out_dir, file_item.output_name)
-
     try:
         im = Image.open(src)
     except Exception as e:
         raise RuntimeError(f"无法打开图片: {e}")
-
     is_animated_gif = (im.format == "GIF" and getattr(im, "is_animated", False))
-
     if (target_fmt and target_fmt != "gif") or (not keep_animation):
         try:
             im.seek(0)
@@ -200,7 +195,6 @@ def run_task(file_item, settings: dict):
         im.close()
         file_item.status = "完成"
         return
-
     if is_animated_gif and keep_animation and (target_fmt is None or target_fmt == "gif"):
         frames = []
         durations = []
@@ -232,10 +226,8 @@ def run_task(file_item, settings: dict):
             pass
         finally:
             im.close()
-
         if not frames:
             raise RuntimeError("未提取到任何帧")
-
         save_kwargs = {
             "save_all": True,
             "append_images": frames[1:],
@@ -244,9 +236,10 @@ def run_task(file_item, settings: dict):
             "optimize": True,
         }
         frames[0].save(out_path, format="GIF", **save_kwargs)
+        for f in frames:
+            f.close()
         file_item.status = "完成"
         return
-
     im = _process_single_frame(im, scale, grayscale, target_fmt, quality, max_colors)
     save_format = _get_save_format(target_fmt or "png")
     save_kwargs = _get_save_kwargs(save_format, quality)
@@ -261,17 +254,14 @@ def _process_single_frame(im, scale, grayscale, target_fmt, quality, max_colors)
         new_w = int(im.width * scale)
         new_h = int(im.height * scale)
         im = im.resize((new_w, new_h), Image.Resampling.LANCZOS)
-
     if grayscale:
         im = im.convert("L")
-
     if target_fmt in (None, "gif") and im.format == "GIF":
         if max_colors < 256:
             if im.mode == "RGBA":
                 im = im.convert("P", palette=Image.Palette.ADAPTIVE, colors=max_colors)
             else:
                 im = im.quantize(colors=max_colors, method=Image.Quantize.MEDIANCUT)
-
     if target_fmt == "jpg":
         if im.mode == "RGBA":
             bg = Image.new("RGB", im.size, (255, 255, 255))
