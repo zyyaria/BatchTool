@@ -670,9 +670,11 @@ def run_batch(items, settings, get_output_dir, get_output_name_for_group,
                 indices = list(range(total_pages))
             out_dir = get_output_dir(item)
             base_name = os.path.splitext(item.output_name)[0] if item.output_name else os.path.splitext(os.path.basename(src))[0]
+            if base_name.endswith("_提取"):
+                base_name = base_name[:-3]
             out_path = os.path.join(out_dir, f"{base_name}_提取.pdf")
-            _extract_pages(src, out_path, indices)
             output_paths = [out_path]
+            _extract_pages(src, out_path, indices)
             if delete_check:
                 remaining_path = os.path.join(out_dir, f"{base_name}_剩余.pdf")
                 _extract_remaining_pages(src, remaining_path, indices)
@@ -711,6 +713,8 @@ def run_batch(items, settings, get_output_dir, get_output_name_for_group,
                 insert_idx = _get_insert_position(total_target_pages, pos_mode, pos_page, pos_dir)
                 out_dir = get_output_dir(item)
                 base_name = os.path.splitext(item.output_name)[0] if item.output_name else os.path.splitext(os.path.basename(target_path))[0]
+                if base_name.endswith("_插入"):
+                    base_name = base_name[:-3]        
                 out_path = os.path.join(out_dir, f"{base_name}_插入.pdf")
                 _insert_single_page(target_path, page_to_insert, insert_idx, out_path)
                 item.output_name = os.path.basename(out_path)
@@ -730,6 +734,8 @@ def run_batch(items, settings, get_output_dir, get_output_name_for_group,
                 insert_idx = _get_insert_position(total_target_pages, pos_mode, pos_page, pos_dir)
                 out_dir = get_output_dir(item)
                 base_name = os.path.splitext(item.output_name)[0] if item.output_name else os.path.splitext(os.path.basename(target_path))[0]
+                if base_name.endswith("_插入"):
+                    base_name = base_name[:-3]        
                 out_path = os.path.join(out_dir, f"{base_name}_插入.pdf")
                 _insert_pages(target_path, src_path, insert_idx, out_path)
                 item.output_name = os.path.basename(out_path)
@@ -767,6 +773,8 @@ def run_batch(items, settings, get_output_dir, get_output_name_for_group,
                 raise ValueError("目标页面范围无效")
             out_dir = get_output_dir(item)
             base_name = os.path.splitext(item.output_name)[0] if item.output_name else os.path.splitext(os.path.basename(src))[0]
+            if base_name.endswith("_替换"):
+                base_name = base_name[:-3]        
             out_path = os.path.join(out_dir, f"{base_name}_替换.pdf")
             _replace_pages(src, src_path, target_indices, src_indices, out_path)
             item.output_name = os.path.basename(out_path)
@@ -785,6 +793,8 @@ def run_batch(items, settings, get_output_dir, get_output_name_for_group,
             src = item.input_path
             out_dir = get_output_dir(item)
             base_name = os.path.splitext(item.output_name)[0] if item.output_name else os.path.splitext(os.path.basename(src))[0]
+            if base_name.endswith("_拆分"):
+                base_name = base_name[:-3]        
             if split_mode == 0:
                 page_count = settings.get("split_page_count", 5)
                 files = _split_by_page_count(src, out_dir, base_name, page_count)
@@ -847,6 +857,8 @@ def run_batch(items, settings, get_output_dir, get_output_name_for_group,
             insert_idx = max(0, min(insert_idx, total_pages - len(range_indices)))
             out_dir = get_output_dir(item)
             base_name = os.path.splitext(item.output_name)[0] if item.output_name else os.path.splitext(os.path.basename(src))[0]
+            if base_name.endswith("_重排"):
+                base_name = base_name[:-3]   
             out_path = os.path.join(out_dir, f"{base_name}_重排.pdf")
             _reorder_pages(src, out_path, range_indices, insert_idx)
             item.output_name = os.path.basename(out_path)
@@ -871,6 +883,8 @@ def run_batch(items, settings, get_output_dir, get_output_name_for_group,
                 raise ValueError("页面范围无效")
             out_dir = get_output_dir(item)
             base_name = os.path.splitext(item.output_name)[0] if item.output_name else os.path.splitext(os.path.basename(src))[0]
+            if base_name.endswith("_删除"):
+                base_name = base_name[:-3]   
             out_path = os.path.join(out_dir, f"{base_name}_删除.pdf")
             _delete_pages(src, out_path, range_indices)
             item.output_name = os.path.basename(out_path)

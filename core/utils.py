@@ -156,23 +156,18 @@ class NamingRule:
                 return "用户输入（未配置）"
             preview = names[0] if count == 1 else f"{names[0]}...等{count}项"
             return f"用户输入 [{preview}] {mode_names.get(mode, mode)}"
-        
         return "未知规则"
     
     def apply(self, name: str, index: int = 0) -> str:
         """将规则应用到文件名，index 用于用户输入规则时的索引"""
         if not self.enabled:
             return name
-        
         result = name
-        
         if self.rule_type == "insert":
             text = self.params.get("text", "")
             mode = self.params.get("mode", "prefix")
-            
             if not text:
                 return result
-            
             if mode == "prefix":
                 result = text + result
             elif mode == "suffix":
@@ -195,11 +190,9 @@ class NamingRule:
                     result = result[:idx] + text + result[idx:]
             elif mode == "replace":
                 result = text
-        
         elif self.rule_type == "user_input":
             names = self.params.get("names", [])
             mode = self.params.get("mode", "replace")
-            
             if names and index < len(names):
                 user_name = names[index]
                 if mode == "replace":
@@ -208,7 +201,6 @@ class NamingRule:
                     result = user_name + result
                 elif mode == "insert_after":
                     result = result + user_name
-        
         return result
     
     def to_dict(self) -> dict:
@@ -291,12 +283,10 @@ def find_ffmpeg():
     saved_path = load_app_config("ffmpeg_path")
     if saved_path and os.path.exists(saved_path):
         return saved_path
-
     import shutil
     ffmpeg_path = shutil.which("ffmpeg")
     if ffmpeg_path:
         return ffmpeg_path
-
     common_paths = [
         r"C:\Program Files\ffmpeg\bin\ffmpeg.exe",
         r"C:\ffmpeg\bin\ffmpeg.exe",

@@ -15,7 +15,6 @@ if __name__ == "__main__":
     app = QApplication(sys.argv)
     app.setWindowIcon(QIcon(resource_path("assets/logo_img.ico")))
     app.setFont(QFont("Microsoft YaHei" if sys.platform.startswith("win") else "Arial", 10))
-
     window = BaseMainWindow(
         app_title=f"IMG 批量处理工具  v{IMG_VERSION}    ©张小鱼",
         feature_modules=IMG_FEATURES,
