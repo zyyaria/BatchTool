@@ -6,7 +6,7 @@ from PIL import Image, ImageDraw, ImageFont
 from PySide6.QtCore import Signal
 from PySide6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QLabel, QSpinBox, QComboBox,
-    QPushButton, QSizePolicy, QColorDialog, QCheckBox, QLineEdit
+    QPushButton, QSizePolicy, QCheckBox, QLineEdit
 )
 from core.utils import get_group_key, get_unique_file_path
 
@@ -38,9 +38,19 @@ class MergePanel(QWidget):
         row_group.addWidget(self.interval_spin, 1)
         layout.addLayout(row_group)
 
+        row_format = QHBoxLayout()
+        self.format_combo = QComboBox()
+        self.format_combo.addItems(["PNG", "JPG", "WEBP"])
+        self.format_combo.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
+        row_format.addWidget(QLabel("目标格式:"))
+        row_format.addWidget(self.format_combo, 1)
+        layout.addLayout(row_format)
+
+        self.size_widget = QWidget()
+        self.size_widget.setContentsMargins(0, 0, 0, 0)
         row_size = QHBoxLayout()
         self.size_combo = QComboBox()
-        self.size_combo.addItems(["保持原尺寸", "自定义"])
+        self.size_combo.addItems(["原尺寸", "自定义"])
         self.size_combo.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
         self.aspect_check = QCheckBox("保持比例")
         self.aspect_check.setChecked(True)
@@ -50,10 +60,8 @@ class MergePanel(QWidget):
         row_size.addWidget(self.aspect_check)
         layout.addLayout(row_size)
 
-        self.size_widget = QWidget()
-        self.size_widget.setContentsMargins(0, 0, 0, 0)
         row_csize = QHBoxLayout(self.size_widget)
-        row_csize.setContentsMargins(0, 0, 0, 0)        
+        row_csize.setContentsMargins(0, 0, 0, 0)
         self.width_spin = QSpinBox()
         self.width_spin.setRange(1, 9999)
         self.width_spin.setValue(640)
@@ -112,6 +120,7 @@ class MergePanel(QWidget):
         self.col_spin.setSizePolicy(QSizePolicy.Ignored, QSizePolicy.Fixed)
         col_layout = QHBoxLayout(self.col_widget)
         col_layout.setContentsMargins(0, 0, 0, 0)
+
         self.offset_widget = QWidget()
         self.offset_label = QLabel("偏移:")
         self.offset_spin = QSpinBox()
@@ -121,24 +130,17 @@ class MergePanel(QWidget):
         self.offset_spin.setSizePolicy(QSizePolicy.Ignored, QSizePolicy.Fixed)
         offset_layout = QHBoxLayout(self.offset_widget)
         offset_layout.setContentsMargins(0, 0, 0, 0)
+
         spacing_layout.addWidget(self.spacing_label)
-        spacing_layout.addWidget(self.spacing_spin, 1)        
+        spacing_layout.addWidget(self.spacing_spin, 1)
         col_layout.addWidget(self.col_label)
-        col_layout.addWidget(self.col_spin, 1)   
+        col_layout.addWidget(self.col_spin, 1)
         offset_layout.addWidget(self.offset_label)
         offset_layout.addWidget(self.offset_spin, 1)
         row_pagram.addWidget(self.spacing_widget, 1)
         row_pagram.addWidget(self.col_widget, 1)
         row_pagram.addWidget(self.offset_widget, 1)
         layout.addLayout(row_pagram)
-
-        row_format = QHBoxLayout()
-        self.format_combo = QComboBox()
-        self.format_combo.addItems(["PNG", "JPG", "WEBP"])
-        self.format_combo.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
-        row_format.addWidget(QLabel("目标格式:"))
-        row_format.addWidget(self.format_combo, 1)
-        layout.addLayout(row_format)
 
         tag_label = QLabel("标签设置（可选）：")
         tag_label.setStyleSheet("font-weight: 600; margin-top: 4px; margin-left: -3px;")
@@ -188,7 +190,7 @@ class MergePanel(QWidget):
         title_label.setStyleSheet("font-weight: 600; margin-top: 4px; margin-left: -3px;")
         title_label.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Fixed)
         layout.addWidget(title_label)
-
+        
         row_title = QHBoxLayout()
         self.title_edit = QLineEdit()
         self.title_edit.setPlaceholderText("输入标题（留空则不显示）")
@@ -221,7 +223,7 @@ class MergePanel(QWidget):
         row_title_size.addWidget(QLabel("大小:"))
         row_title_size.addWidget(self.title_size_spin, 1)
         layout.addLayout(row_title_size)
-        
+
         layout.addStretch()
 
         self.group_combo.currentIndexChanged.connect(self._on_group_changed)
@@ -229,7 +231,6 @@ class MergePanel(QWidget):
         self.prefix_spin.valueChanged.connect(self.changed)
         self.interval_spin.valueChanged.connect(self.changed)
         self.size_combo.currentIndexChanged.connect(self._on_size_changed)
-        self.size_combo.currentIndexChanged.connect(self.changed)
         self.width_spin.valueChanged.connect(self.changed)
         self.height_spin.valueChanged.connect(self.changed)
         self.aspect_check.stateChanged.connect(self.changed)
@@ -240,6 +241,7 @@ class MergePanel(QWidget):
         self.spacing_spin.valueChanged.connect(self.changed)
         self.col_spin.valueChanged.connect(self.changed)
         self.offset_spin.valueChanged.connect(self.changed)
+        self.size_combo.currentIndexChanged.connect(self.changed)
         self.format_combo.currentIndexChanged.connect(self.changed)
         self.index_check.stateChanged.connect(self.changed)
         self.filename_check.stateChanged.connect(self.changed)
@@ -263,7 +265,7 @@ class MergePanel(QWidget):
 
     def _on_size_changed(self):
         """尺寸模式切换"""
-        is_custom = self.size_combo.currentIndex() == 1
+        is_custom = (self.size_combo.currentIndex() == 1)
         self.size_widget.setVisible(is_custom)
         self.aspect_check.setVisible(is_custom)
 
@@ -278,8 +280,9 @@ class MergePanel(QWidget):
 
     def _choose_color(self, btn):
         """颜色选择器"""
-        color = QColorDialog.getColor()
-        if color.isValid():
+        from core.utils import get_color_cn
+        color = get_color_cn(self, title="选择背景色")
+        if color is not None and color.isValid():
             hex_color = color.name().upper()
             btn.setStyleSheet(f"background-color: {hex_color}; border: 1px solid #ccc; border-radius: 3px;")
             btn.setProperty("color_hex", hex_color)

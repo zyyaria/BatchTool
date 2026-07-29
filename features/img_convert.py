@@ -66,11 +66,10 @@ class ConvertPanel(QWidget):
         if show_quality:
             if fmt == "PNG":
                 self.quality_label.setText("图片质量:")
-                self.quality_spin.setSuffix("（100=无压缩，1=极限压缩）")
                 self.quality_spin.setValue(100)
             else:
                 self.quality_label.setText("图片质量:")
-                self.quality_spin.setSuffix(" %（越大越清晰）")
+                self.quality_spin.setSuffix(" %")
                 self.quality_spin.setValue(100)
         else:
             self.quality_spin.setValue(0)

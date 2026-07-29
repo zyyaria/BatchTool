@@ -5,6 +5,8 @@ import os
 import sys
 import json
 from typing import List
+from PySide6.QtCore import QTimer
+from PySide6.QtWidgets import QColorDialog, QDialogButtonBox, QWidget, QGroupBox, QTabWidget, QStatusBar
 
 
 def resource_path(relative_path):
@@ -328,3 +330,108 @@ def get_unique_file_path(directory: str, base_name: str, ext: str) -> str:
         if not os.path.exists(new_path):
             return new_path
         counter += 1
+
+
+def get_color_cn(parent=None, initial=None, title="选择颜色"):
+    """汉化颜色选择对话框"""
+    dlg = QColorDialog(parent)
+    dlg.setWindowTitle(title)
+    if initial is not None:
+        dlg.setCurrentColor(initial)
+    translations = {
+        "OK": "确定",
+        "Cancel": "取消",
+        "&Basic colors": "基本颜色(&B)",
+        "Basic colors": "基本颜色",
+        "&Custom colors": "自定义颜色(&C)",
+        "Custom colors": "自定义颜色",
+        "Add to Custom Colors": "添加到自定义颜色(&A)",
+        "Add to Custom Colors(&A)": "添加到自定义颜色(&A)",
+        "&Color:": "颜色(&C):",
+        "Color:": "颜色:",
+        "&Hue:": "色调(&H):",
+        "Hue:": "色调:",
+        "&Saturation:": "饱和度(&S):",
+        "Saturation:": "饱和度:",
+        "&Value:": "亮度(&V):",
+        "Value:": "亮度:",
+        "&Red:": "红(&R):",
+        "Red:": "红(R):",
+        "&Green:": "绿(&G):",
+        "Green:": "绿(G):",
+        "&Blue:": "蓝(&B):",
+        "Blue:": "蓝(B):",
+        "&Alpha:": "透明度(&A):",
+        "Alpha:": "透明度:",
+        "&Hex:": "十六进制(&H):",
+        "Hex:": "十六进制:",
+        "&HTML:": "HTML(&H):",
+        "HTML:": "HTML:",
+        "Sat": "饱和度:",
+        "Sat:": "饱和度:",
+        "sat": "饱和度:",
+        "sat:": "饱和度:",
+        "Val": "亮度:",
+        "Val:": "亮度:",
+        "val": "亮度:",
+        "val:": "亮度:",
+        "Pick Screen Color": "取色",
+        "&Pick Screen Color": "取色(&P)",
+        "pick screen color": "取色",
+    }
+
+    def apply_translation(widget):
+        """"应用翻译"""
+        if isinstance(widget, QGroupBox):
+            text = widget.title()
+            if text in translations:
+                widget.setTitle(translations[text])
+            else:
+                clean = text.replace("&", "")
+                if clean in translations:
+                    widget.setTitle(translations[clean])
+        elif hasattr(widget, "text"):
+            text = widget.text()
+            if text in translations:
+                widget.setText(translations[text])
+            else:
+                clean = text.replace("&", "")
+                if clean in translations:
+                    widget.setText(translations[clean])
+        if isinstance(widget, QTabWidget):
+            for i in range(widget.count()):
+                tab_text = widget.tabText(i)
+                if tab_text in translations:
+                    widget.setTabText(i, translations[tab_text])
+                else:
+                    clean = tab_text.replace("&", "")
+                    if clean in translations:
+                        widget.setTabText(i, translations[clean])
+
+    def scan_dlg():
+        """"应用翻译字典"""
+        for child in dlg.findChildren(QWidget):
+            apply_translation(child)
+        for bar in dlg.findChildren(QStatusBar):
+            for child in bar.children():
+                if hasattr(child, "text"):
+                    text = child.text()
+                    if text in translations:
+                        child.setText(translations[text])
+    scan_dlg()
+    for box in dlg.findChildren(QDialogButtonBox):
+        for btn in box.buttons():
+            text = btn.text()
+            if text in translations:
+                btn.setText(translations[text])
+            else:
+                clean = text.replace("&", "")
+                if clean in translations:
+                    btn.setText(translations[clean])
+    timer = QTimer()
+    timer.timeout.connect(scan_dlg)
+    timer.start(200)
+    dlg.finished.connect(timer.stop)
+    if dlg.exec() == QColorDialog.Accepted:
+        return dlg.currentColor()
+    return None

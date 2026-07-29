@@ -3,7 +3,7 @@
 
 from . import img_compress, img_convert, img_merge, img_resize, img_split, img_to_gif
 from . import pdf_compress, pdf_convert, pdf_merge, pdf_organize, pdf_outline, pdf_resize, pdf_scanned
-from . import video_cut, video_to_gif, video_merge
+from . import video_cut, video_merge, video_to_gif
 
 
 IMG_FEATURES = [
@@ -27,6 +27,6 @@ PDF_FEATURES = [
 
 VIDEO_FEATURES = [
     {"name": "视频片段截取", "module": video_cut},
-    {"name": "视频转 GIF", "module": video_to_gif},
     {"name": "视频拼接合并", "module": video_merge},
+    {"name": "视频转 GIF", "module": video_to_gif},
 ]

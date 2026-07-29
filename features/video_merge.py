@@ -8,7 +8,8 @@ import subprocess
 from PySide6.QtCore import Signal
 from PySide6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QLabel, QSpinBox, QComboBox,
-    QPushButton, QFileDialog, QMessageBox, QSizePolicy
+    QPushButton, QFileDialog, QMessageBox, QSizePolicy, QButtonGroup,
+    QRadioButton
 )
 from core.utils import get_group_key, save_app_config, get_ffmpeg_path, get_unique_file_path
 
@@ -46,20 +47,33 @@ class VideoMergePanel(QWidget):
         self.format_combo.addItems(["mp4", "mkv", "avi", "mov"])
         self.format_combo.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
         row_format.addWidget(QLabel("目标格式:"))
-        row_format.addWidget(self.format_combo, 1)   
+        row_format.addWidget(self.format_combo, 1)
         layout.addLayout(row_format)
 
         row_codec = QHBoxLayout()
-        self.codec_combo = QComboBox()
-        self.codec_combo.addItems(["直接合并（快速）", "重新编码（兼容）"])
-        self.codec_combo.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
+        self.codec_group = QButtonGroup(self)
+        self.rb_direct = QRadioButton("直接合并")
+        self.rb_reencode = QRadioButton("重新编码")
+        self.rb_direct.setChecked(True)
+        self.codec_group.addButton(self.rb_direct)
+        self.codec_group.addButton(self.rb_reencode)
         row_codec.addWidget(QLabel("编码方式:"))
-        row_codec.addWidget(self.codec_combo, 1)    
+        row_codec.addWidget(self.rb_direct)
+        row_codec.addWidget(self.rb_reencode)
+        row_codec.addStretch()
         layout.addLayout(row_codec)
 
         self.encoder_widget = QWidget()
         codec_encoder_layout = QVBoxLayout(self.encoder_widget)
         codec_encoder_layout.setContentsMargins(0, 0, 0, 0)
+
+        row_preset = QHBoxLayout()
+        self.preset_combo = QComboBox()
+        self.preset_combo.addItems(["快速", "平衡", "高质量"])
+        self.preset_combo.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
+        row_preset.addWidget(QLabel("编码预设:"))
+        row_preset.addWidget(self.preset_combo, 1)
+        codec_encoder_layout.addLayout(row_preset)
 
         row_encoder = QHBoxLayout()        
         self.encoder_combo = QComboBox()
@@ -68,14 +82,6 @@ class VideoMergePanel(QWidget):
         row_encoder.addWidget(QLabel("视频编码器:"))
         row_encoder.addWidget(self.encoder_combo, 1)
         codec_encoder_layout.addLayout(row_encoder)
-
-        row_preset = QHBoxLayout()           
-        self.preset_combo = QComboBox()
-        self.preset_combo.addItems(["快速", "平衡", "高质量"])
-        self.preset_combo.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)  
-        row_preset.addWidget(QLabel("预设:"))
-        row_preset.addWidget(self.preset_combo, 1)
-        codec_encoder_layout.addLayout(row_preset)
 
         layout.addWidget(self.encoder_widget)
 
@@ -101,14 +107,16 @@ class VideoMergePanel(QWidget):
         self.prefix_spin.valueChanged.connect(self.changed)
         self.interval_spin.valueChanged.connect(self.changed)
         self.format_combo.currentIndexChanged.connect(self.changed)
-        self.codec_combo.currentIndexChanged.connect(self._on_codec_combo_changed)
-        self.codec_combo.currentIndexChanged.connect(self.changed)
+        self.rb_direct.toggled.connect(self._on_codec_changed)
+        self.rb_reencode.toggled.connect(self._on_codec_changed)
+        self.rb_direct.toggled.connect(self.changed)
+        self.rb_reencode.toggled.connect(self.changed)
         self.encoder_combo.currentIndexChanged.connect(self.changed)
         self.preset_combo.currentIndexChanged.connect(self.changed)
         self.ffmpeg_btn.clicked.connect(self.select_ffmpeg_path)
 
         self._toggle_options()
-        self._on_codec_combo_changed()
+        self._on_codec_changed()
 
     def _toggle_options(self):
         """分组方式切换"""
@@ -116,9 +124,9 @@ class VideoMergePanel(QWidget):
         self.prefix_spin.setVisible(mode == 0)
         self.interval_spin.setVisible(mode == 1)
 
-    def _on_codec_combo_changed(self):
+    def _on_codec_changed(self):
         """编码方式切换"""
-        is_direct = self.codec_combo.currentIndex() == 0
+        is_direct = self.rb_direct.isChecked()
         self.encoder_widget.setVisible(not is_direct)
 
     def select_ffmpeg_path(self):
@@ -153,7 +161,7 @@ def collect_settings(panel: VideoMergePanel) -> dict:
         "prefix": panel.prefix_spin.value(),
         "interval": panel.interval_spin.value(),
         "format": panel.format_combo.currentText(),
-        "codec": panel.codec_combo.currentIndex(),
+        "codec": 0 if panel.rb_direct.isChecked() else 1,
         "encoder": encoder,
         "preset": panel.preset_combo.currentText(),
     }

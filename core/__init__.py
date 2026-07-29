@@ -26,6 +26,7 @@ from .utils import (
     NamingRule,
     get_ffmpeg_path,
     set_ffmpeg_path,
+    get_color_cn,
 )
 
 from .version import (

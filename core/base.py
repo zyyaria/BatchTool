@@ -371,6 +371,29 @@ class UIMixin:
         self.scroll_area.setWidgetResizable(True)
         self.scroll_area.setHorizontalScrollBarPolicy(Qt.ScrollBarAsNeeded)
         self.scroll_area.setVerticalScrollBarPolicy(Qt.ScrollBarAsNeeded)
+        self.grp_specific.setStyleSheet("""
+            QPushButton {
+                min-height: 28px;
+                padding: 4px 14px;
+                border-radius: 4px;
+                border: 1px solid #d0d0d0;
+                background-color: #fafafa;
+                color: #333;
+                font-weight: 500;
+            }
+            QPushButton:hover {
+                background-color: #f0f0f0;
+                border-color: #b0b0b0;
+            }
+            QPushButton:pressed {
+                background-color: #e8e8e8;
+            }
+            QPushButton:checked {
+                background-color: #e8edf5;
+                border-color: #a0b8d4;
+                color: #1a3a5c;
+            }
+        """)
 
         self.scroll_content = QWidget()
         self.layout_specific = QVBoxLayout(self.scroll_content)

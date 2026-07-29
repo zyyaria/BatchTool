@@ -8,7 +8,8 @@ from PIL import Image, ImageSequence
 from PySide6.QtCore import Signal
 from PySide6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QLabel, QSpinBox, QComboBox,
-    QCheckBox, QSizePolicy, QStackedWidget, QPushButton, QColorDialog
+    QCheckBox, QSizePolicy, QButtonGroup, QPushButton, QColorDialog,
+    QRadioButton
 )
 from core.utils import get_group_key, get_unique_file_path
 
@@ -23,11 +24,19 @@ class ToGifPanel(QWidget):
         layout.setSpacing(8)
 
         row_mode = QHBoxLayout()
-        self.mode_combo = QComboBox()
-        self.mode_combo.addItems(["多图合成 GIF", "多个 GIF 拼接"])
-        self.mode_combo.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
+        self.mode_group = QButtonGroup(self)
+        self.btn_compose = QPushButton("多图合成 GIF")
+        self.btn_compose.setCheckable(True)
+        self.btn_compose.setChecked(True)
+        self.btn_compose.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
+        self.btn_merge = QPushButton("多个 GIF 拼接")
+        self.btn_merge.setCheckable(True)
+        self.btn_merge.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
+        self.mode_group.addButton(self.btn_compose)
+        self.mode_group.addButton(self.btn_merge)
         row_mode.addWidget(QLabel("合成模式:"))
-        row_mode.addWidget(self.mode_combo, 1)
+        row_mode.addWidget(self.btn_compose, 1)
+        row_mode.addWidget(self.btn_merge, 1)
         layout.addLayout(row_mode)
 
         row_group = QHBoxLayout()
@@ -48,11 +57,29 @@ class ToGifPanel(QWidget):
         row_group.addWidget(self.interval_spin, 1)
         layout.addLayout(row_group)
 
+        row_param = QHBoxLayout()
+        self.duration_spin = QSpinBox()
+        self.duration_spin.setRange(10, 5000)
+        self.duration_spin.setValue(300)
+        self.duration_spin.setSuffix(" ms")
+        self.duration_spin.setSizePolicy(QSizePolicy.Ignored, QSizePolicy.Fixed)
+        self.loop_spin = QSpinBox()
+        self.loop_spin.setRange(0, 999)
+        self.loop_spin.setValue(0)
+        self.loop_spin.setToolTip("0=无限循环")
+        self.loop_spin.setSuffix(" 次")
+        self.loop_spin.setSizePolicy(QSizePolicy.Ignored, QSizePolicy.Fixed)
+        row_param.addWidget(QLabel("速度:"))
+        row_param.addWidget(self.duration_spin, 1)
+        row_param.addWidget(QLabel("重复:"))
+        row_param.addWidget(self.loop_spin, 1)
+        layout.addLayout(row_param)
+
         self.size_widget = QWidget()
         self.size_widget.setContentsMargins(0, 0, 0, 0)
         row_size = QHBoxLayout()
         self.size_combo = QComboBox()
-        self.size_combo.addItems(["保持原尺寸", "自定义"])
+        self.size_combo.addItems(["原尺寸", "自定义"])
         self.size_combo.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
         self.aspect_check = QCheckBox("保持比例")
         self.aspect_check.setChecked(True)
@@ -63,14 +90,14 @@ class ToGifPanel(QWidget):
         layout.addLayout(row_size)
 
         row_csize = QHBoxLayout(self.size_widget)
-        row_csize.setContentsMargins(0, 0, 0, 0)        
+        row_csize.setContentsMargins(0, 0, 0, 0)
         self.width_spin = QSpinBox()
-        self.width_spin.setRange(1, 9999)
+        self.width_spin.setRange(1, 999)
         self.width_spin.setValue(640)
         self.width_spin.setSuffix(" px")
         self.width_spin.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
         self.height_spin = QSpinBox()
-        self.height_spin.setRange(1, 9999)
+        self.height_spin.setRange(1, 999)
         self.height_spin.setValue(480)
         self.height_spin.setSuffix(" px")
         self.height_spin.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
@@ -80,48 +107,36 @@ class ToGifPanel(QWidget):
         row_csize.addWidget(self.height_spin, 1)
         layout.addWidget(self.size_widget)
 
-        row_param = QHBoxLayout()
-        self.duration_spin = QSpinBox()
-        self.duration_spin.setRange(10, 5000)
-        self.duration_spin.setValue(300)
-        self.duration_spin.setSuffix(" ms")
-        self.duration_spin.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
-        self.loop_spin = QSpinBox()
-        self.loop_spin.setRange(0, 999)
-        self.loop_spin.setValue(0)
-        self.loop_spin.setToolTip("0=无限循环")
-        self.loop_spin.setSuffix(" 次")
-        self.loop_spin.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
-        row_param.addWidget(QLabel("速度:"))
-        row_param.addWidget(self.duration_spin, 1)
-        row_param.addWidget(QLabel("重复:"))
-        row_param.addWidget(self.loop_spin, 1)
-        layout.addLayout(row_param)
-        
         self.reframe_widget = QWidget()
         reframe_layout = QVBoxLayout(self.reframe_widget)
         reframe_layout.setContentsMargins(0, 0, 0, 0)
 
         row_play = QHBoxLayout()
-        self.play_combo = QComboBox()
-        self.play_combo.addItems(["顺序播放", "同时叠加"])
-        self.play_combo.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
+        self.play_group = QButtonGroup(self)
+        self.rb_sequential = QRadioButton("顺序播放")
+        self.rb_sequential.setChecked(True)
+        self.rb_simultaneous = QRadioButton("同时叠加")
+        self.play_group.addButton(self.rb_sequential)
+        self.play_group.addButton(self.rb_simultaneous)
         row_play.addWidget(QLabel("排列方式:"))
-        row_play.addWidget(self.play_combo, 1)
+        row_play.addWidget(self.rb_sequential)
+        row_play.addWidget(self.rb_simultaneous)
+        row_play.addStretch()
         reframe_layout.addLayout(row_play)
 
         self.sim_widget = QWidget()
         sim_layout = QVBoxLayout(self.sim_widget)
-        sim_layout.setContentsMargins(0, 0, 0, 0)        
+        sim_layout.setContentsMargins(0, 0, 0, 0)
 
-        row_sync = QHBoxLayout()    
+        row_sync = QHBoxLayout()
         self.sync_combo = QComboBox()
         self.sync_combo.addItems(["按最短时长截断", "按最长时长循环"])
         self.sync_combo.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
-        row_sync.addWidget(QLabel("对齐方式:"))
-        row_sync.addWidget(self.sync_combo, 1)      
+        row_sync.addWidget(QLabel("时间同步:"))
+        row_sync.addWidget(self.sync_combo, 1)
+        sim_layout.addLayout(row_sync)
 
-        row_merge = QHBoxLayout()        
+        row_merge = QHBoxLayout()
         self.merge_combo = QComboBox()
         self.merge_combo.addItems(["水平", "垂直", "网格"])
         self.merge_combo.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
@@ -140,24 +155,27 @@ class ToGifPanel(QWidget):
         self.color_btn.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Fixed)
         row_merge.addWidget(QLabel("拼接方式:"))
         row_merge.addWidget(self.merge_combo, 1)
+        row_merge.addStretch()
         row_merge.addWidget(QLabel("背景色:"))
         row_merge.addWidget(self.color_btn)
+        sim_layout.addLayout(row_merge)
 
         row_pagram = QHBoxLayout()
         self.row_label = QLabel("行数:")
         self.row_spin = QSpinBox()
         self.row_spin.setRange(1, 20)
         self.row_spin.setValue(2)
-        self.row_spin.setSizePolicy(QSizePolicy.Ignored, QSizePolicy.Fixed)
+        self.row_spin.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
         self.col_label = QLabel("列数:")
         self.col_spin = QSpinBox()
         self.col_spin.setRange(1, 20)
         self.col_spin.setValue(2)
-        self.col_spin.setSizePolicy(QSizePolicy.Ignored, QSizePolicy.Fixed)
+        self.col_spin.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
         row_pagram.addWidget(self.row_label)
         row_pagram.addWidget(self.row_spin, 1)
         row_pagram.addWidget(self.col_label)
         row_pagram.addWidget(self.col_spin, 1)
+        sim_layout.addLayout(row_pagram)
 
         row_margin = QHBoxLayout()
         self.margin_spin = QSpinBox()
@@ -174,10 +192,6 @@ class ToGifPanel(QWidget):
         row_margin.addWidget(self.margin_spin, 1)
         row_margin.addWidget(QLabel("间距:"))
         row_margin.addWidget(self.padding_spin, 1)
-
-        sim_layout.addLayout(row_sync)
-        sim_layout.addLayout(row_merge)
-        sim_layout.addLayout(row_pagram)
         sim_layout.addLayout(row_margin)
         sim_layout.addStretch()
 
@@ -187,8 +201,8 @@ class ToGifPanel(QWidget):
 
         layout.addStretch()
 
-        self.mode_combo.currentIndexChanged.connect(self._on_mode_changed)
-        self.mode_combo.currentIndexChanged.connect(self.changed)
+        self.btn_compose.clicked.connect(self._on_mode_changed)
+        self.btn_merge.clicked.connect(self._on_mode_changed)
         self.group_combo.currentIndexChanged.connect(self._on_group_changed)
         self.group_combo.currentIndexChanged.connect(self.changed)
         self.prefix_spin.valueChanged.connect(self.changed)
@@ -200,17 +214,19 @@ class ToGifPanel(QWidget):
         self.loop_spin.valueChanged.connect(self.changed)
         self.aspect_check.stateChanged.connect(self.changed)
         self.duration_spin.valueChanged.connect(self.changed)
-        self.play_combo.currentIndexChanged.connect(self._on_play_changed)
-        self.play_combo.currentIndexChanged.connect(self.changed)
+        self.rb_sequential.toggled.connect(self._on_play_changed)
+        self.rb_sequential.toggled.connect(self.changed)
+        self.rb_simultaneous.toggled.connect(self._on_play_changed)
+        self.rb_simultaneous.toggled.connect(self.changed)
         self.merge_combo.currentIndexChanged.connect(self._on_sim_merge_changed)
         self.merge_combo.currentIndexChanged.connect(self.changed)
+        self.sync_combo.currentIndexChanged.connect(self.changed)
         self.color_btn.clicked.connect(lambda: self._choose_color(self.color_btn))
         self.color_btn.clicked.connect(self.changed)
         self.row_spin.valueChanged.connect(self.changed)
         self.col_spin.valueChanged.connect(self.changed)
         self.margin_spin.valueChanged.connect(self.changed)
         self.padding_spin.valueChanged.connect(self.changed)
-        self.sync_combo.currentIndexChanged.connect(self.changed)
 
         self._on_mode_changed()
         self._on_group_changed()
@@ -220,8 +236,8 @@ class ToGifPanel(QWidget):
 
     def _on_mode_changed(self):
         """合成模式切换"""
-        idx = self.mode_combo.currentIndex()
-        self.reframe_widget.setVisible(idx == 1)
+        is_merge = self.btn_merge.isChecked()
+        self.reframe_widget.setVisible(is_merge)
 
     def _on_group_changed(self):
         """分组方式切换"""
@@ -231,19 +247,18 @@ class ToGifPanel(QWidget):
 
     def _on_size_changed(self):
         """尺寸模式切换"""
-        is_custom = self.size_combo.currentIndex() == 1
+        is_custom = (self.size_combo.currentIndex() == 1)
         self.size_widget.setVisible(is_custom)
         self.aspect_check.setVisible(is_custom)
 
     def _on_play_changed(self):
         """播放类型切换"""
-        is_sim = self.play_combo.currentIndex() == 1
+        is_sim = self.rb_simultaneous.isChecked()
         self.sim_widget.setVisible(is_sim)
 
     def _on_sim_merge_changed(self):
         """拼接方式切换"""
-        mode = self.merge_combo.currentText()
-        is_grid = (mode == "网格")
+        is_grid = (self.merge_combo.currentText() == "网格")
         self.row_label.setVisible(is_grid)
         self.row_spin.setVisible(is_grid)
         self.col_label.setVisible(is_grid)
@@ -251,8 +266,9 @@ class ToGifPanel(QWidget):
 
     def _choose_color(self, btn):
         """颜色选择器"""
-        color = QColorDialog.getColor()
-        if color.isValid():
+        from core.utils import get_color_cn
+        color = get_color_cn(self, title="选择背景色")
+        if color is not None and color.isValid():
             hex_color = color.name().upper()
             btn.setStyleSheet(f"background-color: {hex_color}; border: 1px solid #ccc; border-radius: 3px;")
             btn.setProperty("color_hex", hex_color)
@@ -267,7 +283,7 @@ def build_panel() -> QWidget:
 def collect_settings(panel: ToGifPanel) -> dict:
     """收集面板设置"""
     return {
-        "mode": panel.mode_combo.currentIndex(), 
+        "mode": 1 if panel.btn_merge.isChecked() else 0,
         "group": panel.group_combo.currentIndex(),
         "prefix": panel.prefix_spin.value(),
         "interval": panel.interval_spin.value(),
@@ -277,7 +293,7 @@ def collect_settings(panel: ToGifPanel) -> dict:
         "keep_ratio": panel.aspect_check.isChecked(),
         "loop": panel.loop_spin.value(),
         "duration": panel.duration_spin.value(),
-        "play": panel.play_combo.currentIndex(),
+        "play": 1 if panel.rb_simultaneous.isChecked() else 0,
         "merge": panel.merge_combo.currentText(),
         "color": panel.color_btn.property("color_hex") or "#FFFFFF",
         "grid_rows": panel.row_spin.value(),
