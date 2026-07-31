@@ -100,6 +100,12 @@ class ResizePanel(QWidget):
         self.csize_widget.setVisible(is_custom)
         self.changed.emit()
 
+    def set_target_size(self, size_name: str):
+        """"设置目标尺寸"""
+        index = self.size_combo.findText(size_name)
+        if index >= 0:
+            self.size_combo.setCurrentIndex(index)
+
 
 def build_panel() -> QWidget:
     """构建面板实例"""

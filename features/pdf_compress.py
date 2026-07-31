@@ -7,11 +7,12 @@ import shutil
 import platform
 import subprocess
 from PySide6.QtCore import Signal
+from PySide6.QtGui import QAction, QIcon
 from PySide6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QLabel, QComboBox, QPushButton,
-    QFileDialog, QMessageBox, QSpinBox, QSizePolicy
+    QFileDialog, QMessageBox, QSpinBox, QSizePolicy, QLineEdit
 )
-from core.utils import load_app_config, save_app_config
+from core.utils import load_app_config, save_app_config, resource_path
 
 
 class CompressPanel(QWidget):
@@ -22,6 +23,21 @@ class CompressPanel(QWidget):
         super().__init__()
         layout = QVBoxLayout(self)
         layout.setSpacing(8)
+
+        row_gs = QHBoxLayout()
+        self.gs_edit = QLineEdit()
+        self.gs_edit.setText(GS_PATH if GS_PATH else "")
+        self.gs_edit.setReadOnly(True)
+        self.gs_edit.setPlaceholderText("未找到 Ghostscript，点击右侧图标选择")
+        self.gs_edit.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
+        self.gs_action = QAction(self)
+        self.gs_action.setIcon(QIcon(resource_path("assets/folder.png")))
+        self.gs_action.setToolTip("选择 Ghostscript 可执行文件")
+        self.gs_action.triggered.connect(self.select_gs_path)
+        self.gs_edit.addAction(self.gs_action, QLineEdit.TrailingPosition)
+        row_gs.addWidget(QLabel("Ghostscript 路径:"))
+        row_gs.addWidget(self.gs_edit, 1)
+        layout.addLayout(row_gs)
 
         row_preset = QHBoxLayout()
         self.light_btn = QPushButton("轻微")
@@ -67,21 +83,6 @@ class CompressPanel(QWidget):
         row_color.addWidget(self.color_combo, 1)
         layout.addLayout(row_color)
 
-        row_gs = QHBoxLayout()
-        self.gs_label = QLabel(GS_PATH if GS_PATH else "未找到")
-        self.gs_label.setWordWrap(False)
-        self.gs_label.setStyleSheet("color: #555;")
-        self.gs_label.setSizePolicy(QSizePolicy.Ignored, QSizePolicy.Fixed)
-        if GS_PATH:
-            self.gs_label.setToolTip(GS_PATH)
-        row_gs.addWidget(QLabel("Ghostscript 路径:"))
-        row_gs.addWidget(self.gs_label, 1)
-        layout.addLayout(row_gs)
-
-        self.gs_btn = QPushButton("手动指定 Ghostscript 路径")
-        self.gs_btn.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)    
-        layout.addWidget(self.gs_btn, 1)
-
         layout.addStretch()
 
         self.light_btn.clicked.connect(lambda: self._set_preset(150, 85))
@@ -91,7 +92,6 @@ class CompressPanel(QWidget):
         self.dpi_spin.valueChanged.connect(self.changed)
         self.quality_spin.valueChanged.connect(self.changed)
         self.color_combo.currentIndexChanged.connect(self.changed)
-        self.gs_btn.clicked.connect(self.select_gs_path)
 
     def _set_preset(self, dpi, quality):
         """应用预设参数"""
@@ -117,8 +117,8 @@ class CompressPanel(QWidget):
                 save_app_config("gs_path", path)
                 global GS_PATH
                 globals()['GS_PATH'] = path
-                self.gs_label.setText(path)
-                self.gs_label.setToolTip(path)
+                self.gs_edit.setText(path)
+                self.gs_edit.setToolTip(path)
                 QMessageBox.information(self, "成功", "Ghostscript 路径已设置并保存。")
             except Exception as e:
                 QMessageBox.warning(self, "错误", f"所选文件不是有效的 Ghostscript 可执行文件：{e}")

@@ -6,12 +6,13 @@ import sys
 import shutil
 import subprocess
 from PySide6.QtCore import Signal
+from PySide6.QtGui import QAction, QIcon
 from PySide6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QLabel, QSpinBox, QComboBox,
-    QPushButton, QFileDialog, QMessageBox, QSizePolicy, QButtonGroup,
-    QRadioButton
+    QLineEdit, QFileDialog, QMessageBox, QSizePolicy, QButtonGroup, QRadioButton, 
+    QCheckBox
 )
-from core.utils import get_group_key, save_app_config, get_ffmpeg_path, get_unique_file_path
+from core.utils import get_group_key, save_app_config, get_ffmpeg_path, get_unique_file_path, resource_path
 
 
 class VideoMergePanel(QWidget):
@@ -23,6 +24,21 @@ class VideoMergePanel(QWidget):
         self.ffmpeg_path = get_ffmpeg_path()
         layout = QVBoxLayout(self)
         layout.setSpacing(8)
+        
+        row_ffmpeg = QHBoxLayout()
+        self.ffmpeg_edit = QLineEdit()
+        self.ffmpeg_edit.setText(self.ffmpeg_path if self.ffmpeg_path else "")
+        self.ffmpeg_edit.setReadOnly(True)
+        self.ffmpeg_edit.setPlaceholderText("未找到 FFmpeg，点击右侧图标选择")
+        self.ffmpeg_edit.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
+        self.ffmpeg_action = QAction(self)
+        self.ffmpeg_action.setIcon(QIcon(resource_path("assets/folder.png")))
+        self.ffmpeg_action.setToolTip("选择 FFmpeg 可执行文件")
+        self.ffmpeg_action.triggered.connect(self.select_ffmpeg_path)
+        self.ffmpeg_edit.addAction(self.ffmpeg_action, QLineEdit.TrailingPosition)
+        row_ffmpeg.addWidget(QLabel("FFmpeg 路径:"))
+        row_ffmpeg.addWidget(self.ffmpeg_edit, 1)
+        layout.addLayout(row_ffmpeg)
 
         row_group = QHBoxLayout()
         self.group_combo = QComboBox()
@@ -46,8 +62,13 @@ class VideoMergePanel(QWidget):
         self.format_combo = QComboBox()
         self.format_combo.addItems(["mp4", "mkv", "avi", "mov"])
         self.format_combo.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
+        self.chapter_check = QCheckBox("保留章节标记")
+        self.chapter_check.setChecked(False)
+        self.chapter_check.setToolTip("合并后每个源视频的起始位置显示为章节，章节标题为文件名")
+        self.chapter_check.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Fixed)
         row_format.addWidget(QLabel("目标格式:"))
         row_format.addWidget(self.format_combo, 1)
+        row_format.addWidget(self.chapter_check)
         layout.addLayout(row_format)
 
         row_codec = QHBoxLayout()
@@ -85,21 +106,6 @@ class VideoMergePanel(QWidget):
 
         layout.addWidget(self.encoder_widget)
 
-        self.ffmpeg_label = QLabel(self.ffmpeg_path if self.ffmpeg_path else "未找到")
-        self.ffmpeg_label.setWordWrap(False)
-        self.ffmpeg_label.setStyleSheet("color: #555;")
-        self.ffmpeg_label.setSizePolicy(QSizePolicy.Ignored, QSizePolicy.Fixed)
-        if self.ffmpeg_path:
-            self.ffmpeg_label.setToolTip(self.ffmpeg_path)
-        row_ffmpeg = QHBoxLayout()    
-        row_ffmpeg.addWidget(QLabel("FFmpeg 路径:"))
-        row_ffmpeg.addWidget(self.ffmpeg_label, 1)
-        layout.addLayout(row_ffmpeg)
-
-        self.ffmpeg_btn = QPushButton("手动指定 FFmpeg 路径")
-        self.ffmpeg_btn.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)        
-        layout.addWidget(self.ffmpeg_btn, 1)
-
         layout.addStretch()
 
         self.group_combo.currentIndexChanged.connect(self._toggle_options)
@@ -107,13 +113,13 @@ class VideoMergePanel(QWidget):
         self.prefix_spin.valueChanged.connect(self.changed)
         self.interval_spin.valueChanged.connect(self.changed)
         self.format_combo.currentIndexChanged.connect(self.changed)
+        self.chapter_check.stateChanged.connect(self.changed)        
         self.rb_direct.toggled.connect(self._on_codec_changed)
         self.rb_reencode.toggled.connect(self._on_codec_changed)
         self.rb_direct.toggled.connect(self.changed)
         self.rb_reencode.toggled.connect(self.changed)
         self.encoder_combo.currentIndexChanged.connect(self.changed)
         self.preset_combo.currentIndexChanged.connect(self.changed)
-        self.ffmpeg_btn.clicked.connect(self.select_ffmpeg_path)
 
         self._toggle_options()
         self._on_codec_changed()
@@ -140,8 +146,8 @@ class VideoMergePanel(QWidget):
                 subprocess.run([path, "-version"], capture_output=True, check=True)
                 save_app_config("ffmpeg_path", path)
                 self.ffmpeg_path = path
-                self.ffmpeg_label.setText(path)
-                self.ffmpeg_label.setToolTip(path)
+                self.ffmpeg_edit.setText(path)
+                self.ffmpeg_edit.setToolTip(path)
                 QMessageBox.information(self, "成功", "FFmpeg 路径已设置并保存。")
             except Exception as e:
                 QMessageBox.warning(self, "错误", f"所选文件不是有效的 FFmpeg 可执行文件：{e}")
@@ -164,6 +170,7 @@ def collect_settings(panel: VideoMergePanel) -> dict:
         "codec": 0 if panel.rb_direct.isChecked() else 1,
         "encoder": encoder,
         "preset": panel.preset_combo.currentText(),
+        "chapter_markers": panel.chapter_check.isChecked(),
     }
 
 
@@ -183,7 +190,7 @@ def prepare_preview(items, settings):
         groups.setdefault(key, []).append(it.input_path)
     for it in items:
         key = get_group_key(it.input_path, group, prefix, interval, file_paths)
-        display_key = "全部文件" if key == "__all__" else (os.path.basename(key) if group == 2 else key)
+        display_key = "全部" if key == "__all__" else (os.path.basename(key) if group == 2 else key)
         count = len(groups[key])
         method = "直接合并" if codec == 0 else f"重新编码（{encoder}，{preset}）"
         it.preview_extra = {
@@ -201,6 +208,7 @@ def merge_videos(video_paths: list, output_path: str, settings: dict):
     encoder = settings.get("encoder", "libx264")
     preset_map = {"快速": "fast", "平衡": "medium", "高质量": "slow"}
     preset = preset_map.get(settings.get("preset", "平衡"), "medium")
+    chapter_markers = settings.get("chapter_markers", False)
     if len(video_paths) == 1:
         shutil.copy2(video_paths[0], output_path)
         return
@@ -217,6 +225,9 @@ def merge_videos(video_paths: list, output_path: str, settings: dict):
                 "-safe", "0",
                 "-i", list_path,
                 "-c", "copy",
+                "-avoid_negative_ts", "make_zero",
+                "-fflags", "+genpts",
+                "-muxdelay", "0",
                 "-y",
                 output_path
             ]
@@ -242,9 +253,112 @@ def merge_videos(video_paths: list, output_path: str, settings: dict):
             errors='ignore',
             creationflags=subprocess.CREATE_NO_WINDOW if sys.platform == "win32" else 0
         )
+        if chapter_markers and len(video_paths) > 1:
+            _add_chapters(ffmpeg, video_paths, output_path)
     finally:
         if os.path.exists(list_path):
             os.remove(list_path)
+
+
+def _add_chapters(ffmpeg: str, video_paths: list, output_path: str):
+    """为合并后的视频添加章节标记"""
+    import json
+    import subprocess
+    import sys
+    chapters = []
+    current_time = 0.0
+    for path in video_paths:
+        cmd = [
+            "ffprobe",
+            "-v", "error",
+            "-show_entries", "format=duration",
+            "-of", "json",
+            path
+        ]
+        result = subprocess.run(
+            cmd,
+            capture_output=True,
+            text=True,
+            encoding='utf-8',
+            errors='ignore',
+            creationflags=subprocess.CREATE_NO_WINDOW if sys.platform == "win32" else 0
+        )
+        try:
+            data = json.loads(result.stdout)
+            duration = float(data.get("format", {}).get("duration", 0.0))
+        except:
+            duration = 0.0
+        if duration > 0:
+            base_name = os.path.splitext(os.path.basename(path))[0]
+            chapters.append({
+                "start": current_time,
+                "end": current_time + duration,
+                "title": base_name
+            })
+            current_time += duration
+
+    if not chapters:
+        return
+    cmd = [
+        "ffprobe",
+        "-v", "error",
+        "-show_entries", "format=duration",
+        "-of", "json",
+        output_path
+    ]
+    result = subprocess.run(
+        cmd,
+        capture_output=True,
+        text=True,
+        encoding='utf-8',
+        errors='ignore',
+        creationflags=subprocess.CREATE_NO_WINDOW if sys.platform == "win32" else 0
+    )
+    try:
+        data = json.loads(result.stdout)
+        total_duration = float(data.get("format", {}).get("duration", 0.0))
+    except:
+        total_duration = 0.0
+    if total_duration > 0 and abs(total_duration - current_time) > 0.5:
+        scale = total_duration / current_time
+        for ch in chapters:
+            ch["start"] = ch["start"] * scale
+            ch["end"] = ch["end"] * scale
+    metadata_lines = []
+    metadata_lines.append(";FFMETADATA1")
+    for ch in chapters:
+        start = max(0, min(ch["start"], total_duration if total_duration > 0 else ch["end"]))
+        end = max(start, min(ch["end"], total_duration if total_duration > 0 else ch["end"]))
+        metadata_lines.append(f"[CHAPTER]")
+        metadata_lines.append("TIMEBASE=1/1000000")
+        metadata_lines.append(f"START={int(start * 1000000)}")
+        metadata_lines.append(f"END={int(end * 1000000)}")
+        metadata_lines.append(f"title={ch['title']}")
+    metadata_path = output_path + ".metadata"
+    with open(metadata_path, "w", encoding="utf-8") as f:
+        f.write("\n".join(metadata_lines))
+    temp_path = output_path + ".temp" + os.path.splitext(output_path)[1]
+    cmd = [
+        ffmpeg,
+        "-i", output_path,
+        "-i", metadata_path,
+        "-map_metadata", "1",
+        "-c", "copy",
+        "-y",
+        temp_path
+    ]
+    subprocess.run(
+        cmd,
+        check=True,
+        capture_output=True,
+        text=True,
+        encoding='utf-8',
+        errors='ignore',
+        creationflags=subprocess.CREATE_NO_WINDOW if sys.platform == "win32" else 0
+    )
+    os.replace(temp_path, output_path)
+    if os.path.exists(metadata_path):
+        os.remove(metadata_path)
 
 
 def run_batch(items, settings, get_output_dir, get_output_name_for_group,

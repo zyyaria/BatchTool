@@ -10,7 +10,7 @@ import urllib.parse
 from PySide6.QtCore import Signal
 from PySide6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QLabel, QComboBox, QSpinBox,
-    QLineEdit, QCheckBox, QSizePolicy
+    QLineEdit, QCheckBox, QSizePolicy, QButtonGroup, QPushButton
 )
 from core.utils import parse_page_range
 
@@ -57,17 +57,35 @@ class ConvertPanel(QWidget):
         layout = QVBoxLayout(self)
         layout.setSpacing(8)
 
-        row_convert = QHBoxLayout()
-        self.convert_combo = QComboBox()
-        self.convert_combo.addItems(["转换为 PDF", "PDF 转换至", "Office 文档互转"])
-        self.convert_combo.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
-        row_convert.addWidget(QLabel("转换方向:"))
-        row_convert.addWidget(self.convert_combo, 1)
-        layout.addLayout(row_convert)
+        row_mode = QHBoxLayout()
+        self.mode_group = QButtonGroup(self)
+        self.btn_pdf = QPushButton("PDF 转换")
+        self.btn_pdf.setCheckable(True)
+        self.btn_pdf.setChecked(True)
+        self.btn_pdf.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
+        self.btn_office = QPushButton("Office 互转")
+        self.btn_office.setCheckable(True)
+        self.btn_office.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
+        self.mode_group.addButton(self.btn_pdf)
+        self.mode_group.addButton(self.btn_office)
+        row_mode.addWidget(QLabel("模式:"))
+        row_mode.addWidget(self.btn_pdf, 1)
+        row_mode.addWidget(self.btn_office, 1)
+        layout.addLayout(row_mode)
 
         row_format = QHBoxLayout()
         self.format_combo = QComboBox()
         self.format_combo.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
+        row_format.addWidget(QLabel("目标格式:"))
+        row_format.addWidget(self.format_combo, 1)
+        layout.addLayout(row_format)
+
+        self.range_widget = QWidget()
+        row_range = QHBoxLayout(self.range_widget)
+        row_range.setContentsMargins(0, 0, 0, 0)
+        self.range_edit = QLineEdit()
+        self.range_edit.setPlaceholderText("1-3,5,8-（留空=全部）")
+        self.range_edit.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
         self.dpi_label = QLabel("DPI:")
         self.dpi_spin = QSpinBox()
         self.dpi_spin.setRange(72, 600)
@@ -77,63 +95,49 @@ class ConvertPanel(QWidget):
         self.xlsx_check = QCheckBox("合并所有表")
         self.xlsx_check.setChecked(False)
         self.xlsx_check.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Fixed)
-        row_format.addWidget(QLabel("目标格式:"))
-        row_format.addWidget(self.format_combo, 1)
-        row_format.addWidget(self.dpi_label)
-        row_format.addWidget(self.dpi_spin, 1)
-        row_format.addWidget(self.xlsx_check)
-        layout.addLayout(row_format)
-
-        self.range_widget = QWidget()
-        row_range = QHBoxLayout(self.range_widget)
-        row_range.setContentsMargins(0, 0, 0, 0)
-        self.range_edit = QLineEdit()
-        self.range_edit.setPlaceholderText("1-3,5,8-（留空=全部）")
-        self.range_edit.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
         row_range.addWidget(QLabel("页面范围:"))
         row_range.addWidget(self.range_edit, 1)
+        row_range.addWidget(self.dpi_label)
+        row_range.addWidget(self.dpi_spin, 1)
+        row_range.addWidget(self.xlsx_check)
         layout.addWidget(self.range_widget)
 
         layout.addStretch()
 
-        self.convert_combo.currentIndexChanged.connect(self._on_convert_combo_changed)
-        self.format_combo.currentIndexChanged.connect(self._refresh_visibility)
-        self.convert_combo.currentIndexChanged.connect(self.changed)
+        self.btn_pdf.toggled.connect(self._on_mode_changed)
+        self.btn_office.toggled.connect(self._on_mode_changed)
+        self.btn_pdf.toggled.connect(self.changed)
+        self.btn_office.toggled.connect(self.changed)
+        self.format_combo.currentIndexChanged.connect(self._on_format_changed)
         self.format_combo.currentIndexChanged.connect(self.changed)
         self.dpi_spin.valueChanged.connect(self.changed)
         self.range_edit.textChanged.connect(self.changed)
         self.xlsx_check.stateChanged.connect(self.changed)
 
-        self._refresh_targets_for_mode(0)
-        self._refresh_visibility()
+        self._on_mode_changed()
 
-    def _refresh_targets_for_mode(self, mode_idx: int):
-        """更新目标格式"""
+    def _on_mode_changed(self):
+        """操作模式切换"""
+        is_pdf_mode = self.btn_pdf.isChecked()
         self.format_combo.clear()
-        if mode_idx == 0:
-            self.format_combo.addItems(["PDF"])
-        elif mode_idx == 1:
-            self.format_combo.addItems(["DOCX", "XLSX", "PPTX", "JPG", "PNG", "TXT", "HTML"])
+        if is_pdf_mode:
+            self.format_combo.addItems(["pdf", "docx", "xlsx", "pptx", "jpg", "png", "txt", "html"])
         else:
-            self.format_combo.addItems(["DOCX", "DOC", "XLSX", "XLS", "PPTX", "PPT"])
+            self.format_combo.addItems(["docx", "doc","xlsx",  "xls", "pptx", "ppt"])
+        self._on_format_changed()
 
-    def _on_convert_combo_changed(self, idx: int):
-        """转换方向切换"""
-        self._refresh_targets_for_mode(idx)
-        self._refresh_visibility()
-        self.changed.emit()
-
-    def _refresh_visibility(self):
-        """DPI、页面范围、Excel 合并"""
-        mode = self.convert_combo.currentIndex()
-        tgt = self.format_combo.currentText().lower()
-        is_from_pdf = (mode == 1)
-        is_jpg_png = is_from_pdf and tgt in ("jpg", "png")
-        is_xlsx = is_from_pdf and tgt == "xlsx"
-        self.dpi_label.setVisible(is_jpg_png)
-        self.dpi_spin.setVisible(is_jpg_png)
-        self.range_widget.setVisible(is_from_pdf)
+    def _on_format_changed(self):
+        """目标格式切换"""
+        target = self.format_combo.currentText()
+        is_pdf_mode = self.btn_pdf.isChecked()
+        is_image = target in ("jpg", "png")
+        is_xlsx = (target == "xlsx") or (not is_pdf_mode and target == "xlsx")
+        is_office_convert = not is_pdf_mode
+        need_range = is_pdf_mode and target != "pdf"
+        self.dpi_label.setVisible(is_image)
+        self.dpi_spin.setVisible(is_image)
         self.xlsx_check.setVisible(is_xlsx)
+        self.range_widget.setVisible(need_range)
 
 
 def build_panel() -> QWidget:
@@ -143,11 +147,18 @@ def build_panel() -> QWidget:
 
 def collect_settings(panel: ConvertPanel) -> dict:
     """收集面板设置"""
-    mode = panel.convert_combo.currentIndex()
-    direction_map = {0: "to_pdf", 1: "from_pdf", 2: "office_convert"}
+    is_pdf_mode = panel.btn_pdf.isChecked()
+    target = panel.format_combo.currentText()
+    if is_pdf_mode:
+        if target == "pdf":
+            direction = "to_pdf" 
+        else:
+            direction = "from_pdf" 
+    else:
+        direction = "office_convert" 
     return {
-        "direction": direction_map.get(mode, "to_pdf"),
-        "target": panel.format_combo.currentText().lower(),
+        "direction": direction,
+        "target": target,
         "dpi": panel.dpi_spin.value(),
         "range": panel.range_edit.text().strip(),
         "xlsx_merge_check_to_one_sheet": panel.xlsx_check.isChecked(),
@@ -157,23 +168,30 @@ def collect_settings(panel: ConvertPanel) -> dict:
 def prepare_preview(items, settings):
     """生成预览信息"""
     direction = settings.get("direction", "to_pdf")
-    tgt = settings.get("target", "pdf")
+    target = settings.get("target", "pdf")
     for it in items:
         dpi = settings.get("dpi", 72)
         pg = settings.get("range", "")
-        xlsx_merge_check = settings.get("xlsx_merge_check_to_one_sheet", False)
+        xlsx_merge = settings.get("xlsx_merge_check_to_one_sheet", False)
         if direction == "to_pdf":
-            hint = "Office/图片 → PDF"
+            hint = f"→ pdf"
         elif direction == "office_convert":
-            hint = f"Office → {tgt.upper()}"
-        else:
-            hint = f"PDF → {tgt.upper()}"
-            if tgt in ("jpg", "png"):
-                hint += f"，DPI={dpi}"
+            hint = f"Office 互转 → {target}"
+        else: 
+            if target in ("jpg", "png"):
+                hint = f"pdf → {target}，DPI={dpi}"
                 if pg:
                     hint += f"，页码{pg}"
-            elif tgt == "xlsx" and xlsx_merge_check:
-                hint += "，合并为单表"
+            elif target == "xlsx":
+                hint = f"pdf → xlsx"
+                if xlsx_merge:
+                    hint += "，合并为单表"
+                if pg:
+                    hint += f"，页码{pg}"
+            else:
+                hint = f"pdf → {target}"
+                if pg:
+                    hint += f"，页码{pg}"
         it.preview_extra = {"A": hint}
 
 
@@ -486,8 +504,8 @@ def _office_convert_windows(input_path: str, out_path: str, target_ext: str):
 
 def run_task(file_item, settings: dict, custom_names=None):
     """执行单个文件转换任务"""
-    direction = settings.get("direction", "to_pdf").lower()
-    target = settings.get("target", "pdf").lower()
+    direction = settings.get("direction", "to_pdf")
+    target = settings.get("target", "PDF")
     dpi = int(settings.get("dpi", 72))
     page_expr = settings.get("range", "")
     xlsx_merge_check = bool(settings.get("xlsx_merge_check_to_one_sheet", False))
@@ -512,43 +530,50 @@ def run_task(file_item, settings: dict, custom_names=None):
             else:
                 _office_to_pdf_libreoffice(src, out_path)
         else:
-            try:
-                _office_to_pdf_libreoffice(src, out_path)
-            except Exception:
-                shutil.copy2(src, out_path)
+            raise RuntimeError(f"不支持的文件格式: {in_ext}，无法转换为 PDF")
+        file_item.output_name = os.path.basename(out_path)
     elif direction == "office_convert":
         if not _is_office_ext(in_ext):
             raise RuntimeError(f"不支持的文件格式: {in_ext}，仅支持 Word/Excel/PPT 文档")
         if sys.platform.startswith("win") and comtypes is not None:
-            _office_convert_windows(src, out_path, target)
+            output_ext = target.lower()
+            if in_ext == f".{output_ext}":
+                shutil.copy2(src, out_path)
+            else:
+                _office_convert_windows(src, out_path, output_ext)
         else:
             raise RuntimeError("Office 文档互转需要 Windows + Microsoft Office")
-    else:
+    else: 
         if in_ext != ".pdf":
             shutil.copy2(src, out_path)
-        elif target == "txt":
-            with open(out_path, "w", encoding="utf-8") as f:
-                f.write(_pdf_to_text(src))
-        elif target == "html":
-            with open(out_path, "w", encoding="utf-8") as f:
-                f.write(_pdf_to_html(src))
-        elif target == "docx":
-            if Converter is None:
-                raise RuntimeError("缺少 pdf2docx")
-            cv = Converter(src)
-            try:
-                cv.convert(out_path)
-            finally:
-                cv.close()
-        elif target in ("jpg", "png"):
-            base = os.path.splitext(file_item.output_name)[0] if file_item.output_name else os.path.splitext(os.path.basename(src))[0]
-            written = _pdf_to_images_like_reference(src, out_dir, base, target, dpi, page_expr, custom_names=settings.get("custom_names"))
-            file_item.output_paths = written
-            file_item.output_name = os.path.basename(written[0]) if written else ""
-        elif target == "xlsx":
-            _pdf_to_excel(src, out_path, page_expr, xlsx_merge_check)
-        elif target == "pptx":
-            _pdf_to_pptx(src, out_path, dpi, page_expr)
+            file_item.output_name = os.path.basename(out_path)
         else:
-            shutil.copy2(src, out_path)
+            target_lower = target.lower()
+            if target_lower == "txt":
+                with open(out_path, "w", encoding="utf-8") as f:
+                    f.write(_pdf_to_text(src))
+            elif target_lower == "html":
+                with open(out_path, "w", encoding="utf-8") as f:
+                    f.write(_pdf_to_html(src))
+            elif target_lower == "docx":
+                if Converter is None:
+                    raise RuntimeError("缺少 pdf2docx 库")
+                cv = Converter(src)
+                try:
+                    cv.convert(out_path)
+                finally:
+                    cv.close()
+            elif target_lower in ("jpg", "png"):
+                base = os.path.splitext(file_item.output_name)[0] if file_item.output_name else os.path.splitext(os.path.basename(src))[0]
+                written = _pdf_to_images_like_reference(src, out_dir, base, target_lower, dpi, page_expr, custom_names=settings.get("custom_names"))
+                file_item.output_paths = written
+                file_item.output_name = os.path.basename(written[0]) if written else ""
+            elif target_lower == "xlsx":
+                _pdf_to_excel(src, out_path, page_expr, xlsx_merge_check)
+            elif target_lower == "pptx":
+                _pdf_to_pptx(src, out_path, dpi, page_expr)
+            else:
+                raise RuntimeError(f"不支持的目标格式: {target}")
+            if target_lower not in ("jpg", "png"):
+                file_item.output_name = os.path.basename(out_path)
     file_item.status = "完成"

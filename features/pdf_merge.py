@@ -81,7 +81,7 @@ def prepare_preview(items, settings):
         groups.setdefault(key, []).append(it.input_path)
     for it in items:
         key = get_group_key(it.input_path, group, prefix, interval, file_paths)
-        display_key = "全部文件" if key == "__all__" else (os.path.basename(key) if group == 2 else key)
+        display_key = "全部" if key == "__all__" else (os.path.basename(key) if group == 2 else key)
         it.preview_extra = {
             "A": f"合并：组「{display_key}」共 {len(groups[key])} 个PDF"
         }

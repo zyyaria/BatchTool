@@ -34,7 +34,7 @@ class ToGifPanel(QWidget):
         self.btn_merge.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
         self.mode_group.addButton(self.btn_compose)
         self.mode_group.addButton(self.btn_merge)
-        row_mode.addWidget(QLabel("合成模式:"))
+        row_mode.addWidget(QLabel("模式:"))
         row_mode.addWidget(self.btn_compose, 1)
         row_mode.addWidget(self.btn_merge, 1)
         layout.addLayout(row_mode)
@@ -317,7 +317,7 @@ def prepare_preview(items, settings):
         groups.setdefault(key, []).append(it.input_path)
     for it in items:
         key = get_group_key(it.input_path, group_idx, prefix, interval, file_paths)
-        display_key = "全部文件" if key == "__all__" else (os.path.basename(key) if group_idx == 2 else key)
+        display_key = "全部" if key == "__all__" else (os.path.basename(key) if group_idx == 2 else key)
         duration = settings.get("duration", 300)
         loop = settings.get("loop", 0)
         loop_text = "无限" if loop == 0 else str(loop)

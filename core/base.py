@@ -859,6 +859,7 @@ class BaseMainWindow(UIMixin, QMainWindow):
             "img_merge": ("format", "png"), 
             "pdf_merge": ("__fixed__", "pdf"),
             "img_to_gif": ("__fixed__", "gif"), 
+            "video_chapter": ("__fixed__", None),
         }
 
         if module_name not in mapping:
@@ -1168,7 +1169,7 @@ class BaseMainWindow(UIMixin, QMainWindow):
             return False
         module = self.feature_modules[idx]["module"]
         module_name = module.__name__.split('.')[-1]
-        batch_modules = ["pdf_organize", "img_merge", "img_to_gif", "pdf_merge", "video_merge"]
+        batch_modules = ["pdf_organize", "img_merge", "img_to_gif", "pdf_merge", "video_merge", "video_chapter"]
         return module_name in batch_modules
 
     def _run_batch_task(self, checked_items):

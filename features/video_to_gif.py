@@ -5,11 +5,12 @@ import os
 import sys
 import subprocess
 from PySide6.QtCore import Signal, QTime, Qt
+from PySide6.QtGui import QAction, QIcon
 from PySide6.QtWidgets import (
-    QWidget, QVBoxLayout, QHBoxLayout, QLabel, QSpinBox, QPushButton,
+    QWidget, QVBoxLayout, QHBoxLayout, QLabel, QSpinBox, QLineEdit,
     QFileDialog, QMessageBox, QCheckBox, QSizePolicy, QTimeEdit
 )
-from core.utils import get_ffmpeg_path, save_app_config
+from core.utils import get_ffmpeg_path, save_app_config, resource_path
 
 
 class VideoToGifPanel(QWidget):
@@ -22,6 +23,21 @@ class VideoToGifPanel(QWidget):
         layout = QVBoxLayout(self)
         layout.setSpacing(8)
 
+        row_ffmpeg = QHBoxLayout()
+        self.ffmpeg_edit = QLineEdit()
+        self.ffmpeg_edit.setText(self.ffmpeg_path if self.ffmpeg_path else "")
+        self.ffmpeg_edit.setReadOnly(True)
+        self.ffmpeg_edit.setPlaceholderText("未找到 FFmpeg，点击右侧图标选择")
+        self.ffmpeg_edit.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
+        self.ffmpeg_action = QAction(self)
+        self.ffmpeg_action.setIcon(QIcon(resource_path("assets/folder.png")))
+        self.ffmpeg_action.setToolTip("选择 FFmpeg 可执行文件")
+        self.ffmpeg_action.triggered.connect(self.select_ffmpeg_path)
+        self.ffmpeg_edit.addAction(self.ffmpeg_action, QLineEdit.TrailingPosition)
+        row_ffmpeg.addWidget(QLabel("FFmpeg 路径:"))
+        row_ffmpeg.addWidget(self.ffmpeg_edit, 1)
+        layout.addLayout(row_ffmpeg)
+        
         row_time = QHBoxLayout()
         self.start_time = QTimeEdit()
         self.start_time.setDisplayFormat("HH:mm:ss")
@@ -86,21 +102,6 @@ class VideoToGifPanel(QWidget):
         row_size.addWidget(self.height_spin, 1)
         layout.addLayout(row_size)
 
-        row_ffmpeg = QHBoxLayout()    
-        self.ffmpeg_label = QLabel(self.ffmpeg_path if self.ffmpeg_path else "未找到")
-        self.ffmpeg_label.setStyleSheet("color: #555;")
-        self.ffmpeg_label.setWordWrap(False)
-        self.ffmpeg_label.setSizePolicy(QSizePolicy.Ignored, QSizePolicy.Fixed)
-        if self.ffmpeg_path:
-            self.ffmpeg_label.setToolTip(self.ffmpeg_path)
-        row_ffmpeg.addWidget(QLabel("FFmpeg 路径:"))
-        row_ffmpeg.addWidget(self.ffmpeg_label, 1)
-        layout.addLayout(row_ffmpeg)
-
-        self.ffmpeg_btn = QPushButton("手动指定 FFmpeg 路径")
-        self.ffmpeg_btn.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)        
-        layout.addWidget(self.ffmpeg_btn, 1)
-
         layout.addStretch()
 
         self.start_time.timeChanged.connect(self.changed)
@@ -110,7 +111,6 @@ class VideoToGifPanel(QWidget):
         self.height_spin.valueChanged.connect(self.changed)
         self.color_spin.valueChanged.connect(self.changed)
         self.aspect_ratio_check.stateChanged.connect(self.changed)
-        self.ffmpeg_btn.clicked.connect(self.select_ffmpeg_path)
 
     def select_ffmpeg_path(self):
         """选择 FFmpeg 路径"""
@@ -124,8 +124,8 @@ class VideoToGifPanel(QWidget):
                                encoding='utf-8', errors='ignore', check=True)
                 save_app_config("ffmpeg_path", path)
                 self.ffmpeg_path = path
-                self.ffmpeg_label.setText(path)
-                self.ffmpeg_label.setToolTip(path)
+                self.ffmpeg_edit.setText(path)
+                self.ffmpeg_edit.setToolTip(path)
                 QMessageBox.information(self, "成功", "FFmpeg 路径已设置并保存。")
             except Exception as e:
                 QMessageBox.warning(self, "错误", f"所选文件不是有效的 FFmpeg 可执行文件：{e}")

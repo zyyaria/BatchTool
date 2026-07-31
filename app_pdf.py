@@ -93,7 +93,7 @@ class PDFMainWindow(BaseMainWindow):
                 if hasattr(panel, "size_combo"):
                     index = panel.size_combo.findText(matched)
                     if index >= 0:
-                        panel.size_combo.setCurrentIndex(index)
+                        panel.set_target_size(matched)
                         self.append_log(f"已自动设置目标尺寸为：{matched}")
 
     def _detect_pages_and_bookmarks(self):

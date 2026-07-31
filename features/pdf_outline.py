@@ -7,7 +7,8 @@ from PyPDF2 import PdfReader, PdfWriter
 from PySide6.QtCore import Signal
 from PySide6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QLabel, QPlainTextEdit, QSpinBox,
-    QCheckBox, QPushButton, QFileDialog, QMessageBox, QComboBox, QSizePolicy
+    QCheckBox, QPushButton, QFileDialog, QMessageBox, QComboBox, QSizePolicy,
+    QButtonGroup
 )
 
 
@@ -23,11 +24,24 @@ class OutlinePanel(QWidget):
         layout.setSpacing(8)
 
         row_mode = QHBoxLayout()
-        self.mode_combo = QComboBox()
-        self.mode_combo.addItems(["插入书签", "生成目录（基于已有书签）", "插入书签 + 生成目录"])
-        self.mode_combo.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
-        row_mode.addWidget(QLabel("操作模式:"))
-        row_mode.addWidget(self.mode_combo, 1)
+        self.mode_group = QButtonGroup(self)
+        self.btn_insert = QPushButton("插入书签")
+        self.btn_insert.setCheckable(True)
+        self.btn_insert.setChecked(True)
+        self.btn_insert.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
+        self.btn_toc = QPushButton("生成目录")
+        self.btn_toc.setCheckable(True)
+        self.btn_toc.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
+        self.btn_both = QPushButton("两者兼具")
+        self.btn_both.setCheckable(True)
+        self.btn_both.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
+        self.mode_group.addButton(self.btn_insert)
+        self.mode_group.addButton(self.btn_toc)
+        self.mode_group.addButton(self.btn_both)
+        row_mode.addWidget(QLabel("模式:"))
+        row_mode.addWidget(self.btn_insert, 1)
+        row_mode.addWidget(self.btn_toc, 1)
+        row_mode.addWidget(self.btn_both, 1)
         layout.addLayout(row_mode)
 
         self.scope_widget = QWidget()
@@ -100,8 +114,12 @@ class OutlinePanel(QWidget):
 
         layout.addStretch()
 
-        self.mode_combo.currentIndexChanged.connect(self._update_visibility)
-        self.mode_combo.currentIndexChanged.connect(self.changed)
+        self.btn_insert.toggled.connect(self._update_visibility)
+        self.btn_toc.toggled.connect(self._update_visibility)
+        self.btn_both.toggled.connect(self._update_visibility)
+        self.btn_insert.toggled.connect(self.changed)
+        self.btn_toc.toggled.connect(self.changed)
+        self.btn_both.toggled.connect(self.changed)
         self.scope_combo.currentIndexChanged.connect(self._update_visibility)
         self.scope_combo.currentIndexChanged.connect(self.changed)
         self.number_combo.currentIndexChanged.connect(self.changed)
@@ -116,7 +134,7 @@ class OutlinePanel(QWidget):
         
     def _update_visibility(self):
         """操作模式切换"""
-        is_toc_mode = self.mode_combo.currentIndex() != 0
+        is_toc_mode = self.btn_toc.isChecked() or self.btn_both.isChecked()
         self.scope_widget.setVisible(is_toc_mode)
         if is_toc_mode:
             is_numbered = self.scope_combo.currentIndex() != 0
@@ -149,7 +167,7 @@ def collect_settings(panel: OutlinePanel) -> dict:
         "text": panel.text_edit.toPlainText(),
         "offset": panel.offset_spin.value(),
         "overwrite": panel.overwrite_check.isChecked(),
-        "mode": panel.mode_combo.currentIndex(),
+                "mode": 0 if panel.btn_insert.isChecked() else (1 if panel.btn_toc.isChecked() else 2),
         "scope": panel.scope_combo.currentIndex(),
         "number": panel.number_combo.currentIndex(),
     }

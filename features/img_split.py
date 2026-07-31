@@ -36,7 +36,7 @@ class SplitPanel(QWidget):
         self.btn_crop.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
         self.mode_group.addButton(self.btn_split)
         self.mode_group.addButton(self.btn_crop)
-        row_mode.addWidget(QLabel("操作模式:"))
+        row_mode.addWidget(QLabel("模式:"))
         row_mode.addWidget(self.btn_split, 1)
         row_mode.addWidget(self.btn_crop, 1)
         layout.addLayout(row_mode)

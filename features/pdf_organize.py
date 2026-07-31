@@ -7,7 +7,7 @@ from PySide6.QtCore import Signal
 from PySide6.QtGui import QIntValidator, QAction, QIcon
 from PySide6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QLabel, QComboBox, QLineEdit,
-    QSpinBox, QPushButton, QFileDialog, QCheckBox, QSizePolicy
+    QSpinBox, QPushButton, QFileDialog, QCheckBox, QSizePolicy, QButtonGroup
 )
 from core.utils import parse_page_range, resource_path
 
@@ -50,35 +50,72 @@ class OrganizePanel(QWidget):
         self._on_reorder_position_mode_changed()        
 
     def _create_mode_row(self, layout):
-        """顶部：操作模式 + 按序插入 + 提取后删除"""
-        row = QHBoxLayout()
-        self.mode_combo = QComboBox()
-        self.mode_combo.addItems(["提取页面", "插入页面", "替换页面", "拆分页面", "重排页面", "删除页面"])
-        self.mode_combo.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
-        self.insert_check = QCheckBox("按序插入")
-        self.insert_check.setChecked(False)
-        self.insert_check.setToolTip("将源文件的第N页插入到列表中第N个文件的指定位置")
-        self.insert_check.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Fixed)
-        self.delete_check = QCheckBox("提取后删除页面")
-        self.delete_check.setChecked(False)
-        self.delete_check.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Fixed)
-        row.addWidget(QLabel("操作模式:"))
-        row.addWidget(self.mode_combo, 1)
-        row.addWidget(self.insert_check)
-        row.addWidget(self.delete_check)
-        layout.addLayout(row)
+        """顶部：操作模式按钮"""
+        row1 = QHBoxLayout()
+        self.mode_group = QButtonGroup(self)
+        self.btn_extract = QPushButton("提取")
+        self.btn_extract.setCheckable(True)
+        self.btn_extract.setChecked(True)
+        self.btn_extract.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
+        self.btn_insert = QPushButton("插入")
+        self.btn_insert.setCheckable(True)
+        self.btn_insert.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
+        self.btn_replace = QPushButton("替换")
+        self.btn_replace.setCheckable(True)
+        self.btn_replace.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
+        self.mode_group.addButton(self.btn_extract, 0)
+        self.mode_group.addButton(self.btn_insert, 1)
+        self.mode_group.addButton(self.btn_replace, 2)
+        mode_label = QLabel("模式:")
+        mode_label.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Fixed)
+        mode_width = mode_label.sizeHint().width()
+        row1.addWidget(mode_label)
+        row1.addWidget(self.btn_extract, 1)
+        row1.addWidget(self.btn_insert, 1)
+        row1.addWidget(self.btn_replace, 1)
+        layout.addLayout(row1)
+
+        row2 = QHBoxLayout()
+        self.btn_split = QPushButton("拆分")
+        self.btn_split.setCheckable(True)
+        self.btn_split.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
+        self.btn_reorder = QPushButton("重排")
+        self.btn_reorder.setCheckable(True)
+        self.btn_reorder.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
+        self.btn_delete = QPushButton("删除")
+        self.btn_delete.setCheckable(True)
+        self.btn_delete.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
+        self.mode_group.addButton(self.btn_split, 3)
+        self.mode_group.addButton(self.btn_reorder, 4)
+        self.mode_group.addButton(self.btn_delete, 5)
+
+        spacer = QLabel("")
+        spacer.setFixedWidth(mode_width)
+        spacer.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Fixed)
+
+        row2.addWidget(spacer)
+        row2.addWidget(self.btn_split, 1)
+        row2.addWidget(self.btn_reorder, 1)
+        row2.addWidget(self.btn_delete, 1)
+        layout.addLayout(row2)
 
     def _create_extract_widget(self):
         """提取页面"""
         widget = QWidget()
         layout = QVBoxLayout(widget)
         layout.setContentsMargins(0, 0, 0, 0)
+
         row = QHBoxLayout()
         self.extract_range_edit = QLineEdit()
         self.extract_range_edit.setPlaceholderText("1-3,5,8-10（留空=全部）")
         self.extract_range_edit.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
+        self.delete_check = QCheckBox("保留剩余")
+        self.delete_check.setToolTip("提取页面后，将剩余页面另存为独立文件")
+        self.delete_check.setChecked(False)
+        self.delete_check.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Fixed)
         row.addWidget(QLabel("页面范围:"))
         row.addWidget(self.extract_range_edit, 1)
+        row.addWidget(self.delete_check)
         layout.addLayout(row)
         return widget
     
@@ -90,7 +127,7 @@ class OrganizePanel(QWidget):
 
         row_file = QHBoxLayout()
         self.insert_file_edit = QLineEdit()
-        self.insert_file_edit.setPlaceholderText("点击右侧图标选择PDF文件")
+        self.insert_file_edit.setPlaceholderText("选择PDF文件")
         self.insert_file_edit.setReadOnly(True)
         self.insert_file_edit.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
         insert_file_action = QAction(self)
@@ -98,8 +135,13 @@ class OrganizePanel(QWidget):
         insert_file_action.setToolTip("选择要插入的PDF文件")
         insert_file_action.triggered.connect(self._select_insert_file)
         self.insert_file_edit.addAction(insert_file_action, QLineEdit.TrailingPosition)
+        self.insert_check = QCheckBox("按序插入")
+        self.insert_check.setChecked(False)
+        self.insert_check.setToolTip("将源文件的第N页插入到列表中第N个文件的指定位置")
+        self.insert_check.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Fixed)
         row_file.addWidget(QLabel("插入文件:"))
         row_file.addWidget(self.insert_file_edit, 1)
+        row_file.addWidget(self.insert_check)
         layout.addLayout(row_file)
 
         row_pos = QHBoxLayout()
@@ -124,7 +166,7 @@ class OrganizePanel(QWidget):
         row_pos.addWidget(self.insert_position_widget)
         row_pos.addWidget(self.insert_dir_combo)
         layout.addLayout(row_pos)
-        return widget    
+        return widget 
 
     def _create_replace_widget(self):
         """替换页面"""
@@ -142,7 +184,7 @@ class OrganizePanel(QWidget):
 
         row_file = QHBoxLayout()
         self.replace_file_edit = QLineEdit()
-        self.replace_file_edit.setPlaceholderText("点击右侧图标选择PDF文件")
+        self.replace_file_edit.setPlaceholderText("选择PDF文件")
         self.replace_file_edit.setReadOnly(True)
         self.replace_file_edit.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
         replace_file_mode = QAction(self)
@@ -252,40 +294,56 @@ class OrganizePanel(QWidget):
         layout.addLayout(row)
         return widget
 
-
     def _connect_signals(self):
-        """"信号连接"""
-        self.mode_combo.currentIndexChanged.connect(self._on_mode_changed)
-        self.mode_combo.currentIndexChanged.connect(self.changed)
+        """信号连接"""
+        self.btn_extract.toggled.connect(self._on_mode_changed)
+        self.btn_insert.toggled.connect(self._on_mode_changed)
+        self.btn_replace.toggled.connect(self._on_mode_changed)
+        self.btn_split.toggled.connect(self._on_mode_changed)
+        self.btn_reorder.toggled.connect(self._on_mode_changed)
+        self.btn_delete.toggled.connect(self._on_mode_changed)
+        self.btn_extract.toggled.connect(self.changed)
+        self.btn_insert.toggled.connect(self.changed)
+        self.btn_replace.toggled.connect(self.changed)
+        self.btn_split.toggled.connect(self.changed)
+        self.btn_reorder.toggled.connect(self.changed)
+        self.btn_delete.toggled.connect(self.changed)
+
         self.extract_range_edit.textChanged.connect(self.changed)
         self.delete_check.stateChanged.connect(self.changed)
+
         self.insert_file_edit.textChanged.connect(self.changed)
         self.insert_position_combo.currentIndexChanged.connect(self._on_insert_position_mode_changed)
         self.insert_position_combo.currentIndexChanged.connect(self.changed)
         self.insert_page_edit.textChanged.connect(self.changed)
         self.insert_dir_combo.currentIndexChanged.connect(self.changed)
+        self.insert_check.stateChanged.connect(self.changed)
+
         self.replace_range_edit.textChanged.connect(self.changed)
         self.replace_file_edit.textChanged.connect(self.changed)
         self.replace_source_edit.textChanged.connect(self.changed)
+
         self.split_combo.currentIndexChanged.connect(self._on_split_mode_changed)
         self.split_combo.currentIndexChanged.connect(self.changed)
         self.split_count_spin.valueChanged.connect(self.changed)
         self.split_range_edit.textChanged.connect(self.changed)
+
         self.reorder_range_edit.textChanged.connect(self.changed)
         self.reorder_position_combo.currentIndexChanged.connect(self._on_reorder_position_mode_changed)
         self.reorder_position_combo.currentIndexChanged.connect(self.changed)
         self.reorder_page_edit.textChanged.connect(self.changed)
         self.reorder_dir_combo.currentIndexChanged.connect(self.changed)
+
         self.delete_range_edit.textChanged.connect(self.changed)
-        self.insert_check.stateChanged.connect(self.changed)
+
         self.detect_btn.clicked.connect(self.detect_page_signal.emit)
 
     def _on_mode_changed(self):
         """操作模式切换"""
-        idx = self.mode_combo.currentIndex()
+        idx = self.mode_group.checkedId()
+        if idx < 0:
+            idx = 0
         self._show_only_widget(idx)
-        self.insert_check.setVisible(idx == 1)
-        self.delete_check.setVisible(idx == 0)
         self.changed.emit()
 
     def _show_only_widget(self, index):
@@ -343,7 +401,7 @@ def build_panel() -> QWidget:
 def collect_settings(panel: OrganizePanel) -> dict:
     """收集面板设置"""
     return {
-        "mode": panel.mode_combo.currentIndex(),
+        "mode": panel.mode_group.checkedId(),
         "range_edit": panel.extract_range_edit.text().strip(),
         "delete_check": panel.delete_check.isChecked(),
         "insert_file": panel.insert_file_edit.text().strip(),
@@ -396,10 +454,11 @@ def prepare_preview(items, settings):
         split_mode = settings.get("split_mode", 0)
         if split_mode == 0:
             count = settings.get("split_page_count", 5)
-            extra.append(f"固定页数：{count}")
+            extra.append(f"固定页数：{count}，生成多个文件")
         else:
             ranges = settings.get("split_range_list", "")
-            extra.append(f"范围：{ranges}")
+            parts = ranges.split(',') if ranges else []
+            extra.append(f"范围：{ranges}，生成 {len(parts)} 个文件")
     elif mode_idx == 4:  
         range_text = settings.get("reorder_range", "")
         pos_mode = settings.get("reorder_position_mode", 0)
