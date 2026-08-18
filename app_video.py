@@ -3,14 +3,13 @@
 
 import os
 import sys
-import subprocess
-from PySide6.QtGui import QIcon, QFont
+from PySide6.QtGui import QFont, QIcon
 from PySide6.QtWidgets import (
-    QApplication, QMessageBox, QDialog, QLabel, QPlainTextEdit, QPushButton, 
-    QVBoxLayout, QHBoxLayout
+    QApplication, QDialog, QHBoxLayout, QLabel, QPlainTextEdit, 
+    QPushButton, QVBoxLayout
 )
 from core.base import BaseMainWindow
-from core.utils import resource_path, get_ffmpeg_path
+from core.utils import resource_path
 from core.version import VIDEO_VERSION
 from core.help import get_video_help_text
 from features import VIDEO_FEATURES
@@ -79,6 +78,9 @@ class VideoMainWindow(BaseMainWindow):
         if dialog.exec() == QDialog.Accepted:
             new_text = text_edit.toPlainText().strip()
             fi.custom_chapters = new_text
+            module = self.feature_modules[idx]["module"]
+            settings = module.collect_settings(panel)
+            module.prepare_preview(self.preview_mgr.items, settings)
             self.refresh_table()
             if new_text:
                 self.append_log(f"已为 {os.path.basename(fi.input_path)} 设置自定义章节")

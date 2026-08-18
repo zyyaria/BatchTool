@@ -6,9 +6,9 @@ import fitz
 from PyPDF2 import PdfReader, PdfWriter
 from PySide6.QtCore import Signal
 from PySide6.QtWidgets import (
-    QWidget, QVBoxLayout, QHBoxLayout, QLabel, QPlainTextEdit, QSpinBox,
-    QCheckBox, QPushButton, QFileDialog, QMessageBox, QComboBox, QSizePolicy,
-    QButtonGroup
+    QWidget, QVBoxLayout, QHBoxLayout, QLabel, QPlainTextEdit, 
+    QSpinBox, QCheckBox, QPushButton, QFileDialog, QMessageBox, 
+    QComboBox, QSizePolicy, QButtonGroup
 )
 
 

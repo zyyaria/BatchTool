@@ -5,8 +5,8 @@ import os
 import shutil
 from PySide6.QtCore import Signal
 from PySide6.QtWidgets import (
-    QWidget, QVBoxLayout, QHBoxLayout, QLabel, QComboBox, QSpinBox,
-    QCheckBox, QSizePolicy
+    QWidget, QVBoxLayout, QHBoxLayout, QLabel, QComboBox, 
+    QSpinBox, QCheckBox, QSizePolicy
 )
 from core.utils import ensure_image_mode
 
@@ -32,9 +32,13 @@ class ConvertPanel(QWidget):
         self.fill_check = QCheckBox("填充白色背景")
         self.fill_check.setChecked(True)
         self.fill_check.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Fixed)
+        self.tiff_compress_check = QCheckBox("LZW 压缩")
+        self.tiff_compress_check.setChecked(True)
+        self.tiff_compress_check.setToolTip("使用 LZW 压缩减小 TIFF 文件体积")
         row_format.addWidget(QLabel("目标格式:"))
         row_format.addWidget(self.format_combo, 1)
         row_format.addWidget(self.fill_check)
+        row_format.addWidget(self.tiff_compress_check)
         layout.addLayout(row_format)
 
         row_quality = QHBoxLayout()
@@ -53,6 +57,7 @@ class ConvertPanel(QWidget):
         self.format_combo.currentIndexChanged.connect(self.changed)
         self.quality_spin.valueChanged.connect(self.changed)
         self.fill_check.stateChanged.connect(self.changed)
+        self.tiff_compress_check.stateChanged.connect(self.changed)
 
         self._on_format_changed()
         
@@ -60,17 +65,21 @@ class ConvertPanel(QWidget):
         """目标格式切换"""
         fmt = self.format_combo.currentText()
         self.fill_check.setVisible(fmt in ("JPG", "BMP", "ICO"))
+        self.tiff_compress_check.setVisible(fmt == "TIFF")
         show_quality = fmt in ("PNG", "JPG", "WEBP")
         self.quality_label.setVisible(show_quality)
         self.quality_spin.setVisible(show_quality)
         if show_quality:
             if fmt == "PNG":
-                self.quality_label.setText("图片质量:")
-                self.quality_spin.setValue(100)
+                self.quality_label.setText("压缩等级:")
+                self.quality_spin.setSuffix("")
+                self.quality_spin.setRange(0, 9)
+                self.quality_spin.setValue(6)
             else:
                 self.quality_label.setText("图片质量:")
                 self.quality_spin.setSuffix(" %")
-                self.quality_spin.setValue(100)
+                self.quality_spin.setRange(1, 100)
+                self.quality_spin.setValue(90)
         else:
             self.quality_spin.setValue(0)
         self.changed.emit()
@@ -87,6 +96,7 @@ def collect_settings(panel: ConvertPanel) -> dict:
         "target_format": panel.format_combo.currentText().lower(),
         "quality": panel.quality_spin.value(),
         "fill_white_bg": panel.fill_check.isChecked(),
+        "tiff_compress": panel.tiff_compress_check.isChecked(),
     }
 
 
@@ -141,6 +151,9 @@ def run_task(file_item, settings: dict):
         save_kwargs["optimize"] = True
     elif target_fmt == "gif":
         save_kwargs["optimize"] = True
+    elif target_fmt == "tiff":
+        if settings.get("tiff_compress", True):
+            save_kwargs["compression"] = "tiff_lzw"        
     save_format = target_fmt.upper()
     if save_format == "JPG":
         save_format = "JPEG"

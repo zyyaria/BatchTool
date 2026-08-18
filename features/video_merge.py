@@ -8,11 +8,11 @@ import subprocess
 from PySide6.QtCore import Signal
 from PySide6.QtGui import QAction, QIcon
 from PySide6.QtWidgets import (
-    QWidget, QVBoxLayout, QHBoxLayout, QLabel, QSpinBox, QComboBox,
-    QLineEdit, QFileDialog, QMessageBox, QSizePolicy, QButtonGroup, QRadioButton, 
+    QWidget, QVBoxLayout, QHBoxLayout, QLabel, QSpinBox, 
+    QComboBox, QLineEdit, QSizePolicy, QButtonGroup, QRadioButton, 
     QCheckBox
 )
-from core.utils import get_group_key, save_app_config, get_ffmpeg_path, get_unique_file_path, resource_path
+from core.utils import get_group_key, get_ffmpeg_path, get_unique_file_path, resource_path, select_ffmpeg_path
 
 
 class VideoMergePanel(QWidget):
@@ -34,7 +34,7 @@ class VideoMergePanel(QWidget):
         self.ffmpeg_action = QAction(self)
         self.ffmpeg_action.setIcon(QIcon(resource_path("assets/folder.png")))
         self.ffmpeg_action.setToolTip("选择 FFmpeg 可执行文件")
-        self.ffmpeg_action.triggered.connect(self.select_ffmpeg_path)
+        self.ffmpeg_action.triggered.connect(lambda: select_ffmpeg_path(self, self.ffmpeg_edit))
         self.ffmpeg_edit.addAction(self.ffmpeg_action, QLineEdit.TrailingPosition)
         row_ffmpeg.addWidget(QLabel("FFmpeg 路径:"))
         row_ffmpeg.addWidget(self.ffmpeg_edit, 1)
@@ -104,6 +104,15 @@ class VideoMergePanel(QWidget):
         row_encoder.addWidget(self.encoder_combo, 1)
         codec_encoder_layout.addLayout(row_encoder)
 
+        row_audio = QHBoxLayout()
+        self.audio_bitrate_combo = QComboBox()
+        self.audio_bitrate_combo.addItems(["128k", "192k", "256k", "320k"])
+        self.audio_bitrate_combo.setCurrentIndex(1)
+        self.audio_bitrate_combo.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
+        row_audio.addWidget(QLabel("音频码率:"))
+        row_audio.addWidget(self.audio_bitrate_combo, 1)
+        codec_encoder_layout.addLayout(row_audio)
+        
         layout.addWidget(self.encoder_widget)
 
         layout.addStretch()
@@ -120,6 +129,7 @@ class VideoMergePanel(QWidget):
         self.rb_reencode.toggled.connect(self.changed)
         self.encoder_combo.currentIndexChanged.connect(self.changed)
         self.preset_combo.currentIndexChanged.connect(self.changed)
+        self.audio_bitrate_combo.currentIndexChanged.connect(self.changed)
 
         self._toggle_options()
         self._on_codec_changed()
@@ -134,23 +144,6 @@ class VideoMergePanel(QWidget):
         """编码方式切换"""
         is_direct = self.rb_direct.isChecked()
         self.encoder_widget.setVisible(not is_direct)
-
-    def select_ffmpeg_path(self):
-        """选择 FFmpeg 路径"""
-        path, _ = QFileDialog.getOpenFileName(
-            self, "选择 FFmpeg 可执行文件", "",
-            "FFmpeg 可执行文件 (ffmpeg.exe);;所有文件 (*.*)"
-        )
-        if path:
-            try:
-                subprocess.run([path, "-version"], capture_output=True, check=True)
-                save_app_config("ffmpeg_path", path)
-                self.ffmpeg_path = path
-                self.ffmpeg_edit.setText(path)
-                self.ffmpeg_edit.setToolTip(path)
-                QMessageBox.information(self, "成功", "FFmpeg 路径已设置并保存。")
-            except Exception as e:
-                QMessageBox.warning(self, "错误", f"所选文件不是有效的 FFmpeg 可执行文件：{e}")
 
 
 def build_panel() -> QWidget:
@@ -171,6 +164,7 @@ def collect_settings(panel: VideoMergePanel) -> dict:
         "encoder": encoder,
         "preset": panel.preset_combo.currentText(),
         "chapter_markers": panel.chapter_check.isChecked(),
+        "audio_bitrate": panel.audio_bitrate_combo.currentText(),
     }
 
 
@@ -200,14 +194,11 @@ def prepare_preview(items, settings):
 
 
 def merge_videos(video_paths: list, output_path: str, settings: dict):
-    """使用 FFmpeg 合并多个视频"""
+    """使用 FFmpeg 合并多个视频，直接合并失败时自动降级到重新编码"""
     ffmpeg = get_ffmpeg_path()
     if not ffmpeg:
         raise RuntimeError("未找到 FFmpeg，请安装并添加到 PATH，或手动指定路径")
     codec = settings.get("codec", 0)
-    encoder = settings.get("encoder", "libx264")
-    preset_map = {"快速": "fast", "平衡": "medium", "高质量": "slow"}
-    preset = preset_map.get(settings.get("preset", "平衡"), "medium")
     chapter_markers = settings.get("chapter_markers", False)
     if len(video_paths) == 1:
         shutil.copy2(video_paths[0], output_path)
@@ -218,48 +209,64 @@ def merge_videos(video_paths: list, output_path: str, settings: dict):
             abs_path = os.path.abspath(path)
             f.write(f"file '{abs_path.replace('\\', '/')}'\n")
     try:
-        if codec == 0:
-            cmd = [
-                ffmpeg,
-                "-f", "concat",
-                "-safe", "0",
-                "-i", list_path,
-                "-c", "copy",
-                "-avoid_negative_ts", "make_zero",
-                "-fflags", "+genpts",
-                "-muxdelay", "0",
-                "-y",
-                output_path
-            ]
+        if codec == 1:
+            _merge_with_reencode(ffmpeg, list_path, output_path, settings)
         else:
-            cmd = [
-                ffmpeg,
-                "-f", "concat",
-                "-safe", "0",
-                "-i", list_path,
-                "-c:v", encoder,
-                "-preset", preset,
-                "-c:a", "aac",
-                "-b:a", "192k",
-                "-y",
-                output_path
-            ]
-        subprocess.run(
-            cmd,
-            check=True,
-            capture_output=True,
-            text=True,
-            encoding='utf-8',
-            errors='ignore',
-            creationflags=subprocess.CREATE_NO_WINDOW if sys.platform == "win32" else 0
-        )
-        if chapter_markers and len(video_paths) > 1:
-            _add_chapters(ffmpeg, video_paths, output_path)
+            try:
+                _merge_direct(ffmpeg, list_path, output_path)
+            except subprocess.CalledProcessError as e:
+                print(f"⚠️ 直接合并失败（编码参数不一致），自动切换到重新编码模式重试...")
+                print(f"错误信息：{e.stderr}")
+                _merge_with_reencode(ffmpeg, list_path, output_path, settings)
     finally:
         if os.path.exists(list_path):
             os.remove(list_path)
+    if chapter_markers and len(video_paths) > 1:
+        _add_chapters(ffmpeg, video_paths, output_path)
 
 
+def _merge_direct(ffmpeg, list_path, output_path):
+    """直接合并（不重新编码）"""
+    cmd = [
+        ffmpeg,
+        "-f", "concat",
+        "-safe", "0",
+        "-i", list_path,
+        "-c", "copy",
+        "-avoid_negative_ts", "make_zero",
+        "-fflags", "+genpts",
+        "-muxdelay", "0",
+        "-y",
+        output_path
+    ]
+    subprocess.run(cmd, check=True, capture_output=True, text=True,
+                   encoding='utf-8', errors='ignore',
+                   creationflags=subprocess.CREATE_NO_WINDOW if sys.platform == "win32" else 0)
+
+
+def _merge_with_reencode(ffmpeg, list_path, output_path, settings):
+    """重新编码模式合并"""
+    encoder = settings.get("encoder", "libx264")
+    preset_map = {"快速": "fast", "平衡": "medium", "高质量": "slow"}
+    preset = preset_map.get(settings.get("preset", "平衡"), "medium")
+    audio_bitrate = settings.get("audio_bitrate", "192k")
+    cmd = [
+        ffmpeg,
+        "-f", "concat",
+        "-safe", "0",
+        "-i", list_path,
+        "-c:v", encoder,
+        "-preset", preset,
+        "-c:a", "aac",
+        "-b:a", audio_bitrate,
+        "-y",
+        output_path
+    ]
+    subprocess.run(cmd, check=True, capture_output=True, text=True,
+                   encoding='utf-8', errors='ignore',
+                   creationflags=subprocess.CREATE_NO_WINDOW if sys.platform == "win32" else 0)
+
+    
 def _add_chapters(ffmpeg: str, video_paths: list, output_path: str):
     """为合并后的视频添加章节标记"""
     import json

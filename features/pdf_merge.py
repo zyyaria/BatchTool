@@ -6,8 +6,8 @@ import shutil
 from PyPDF2 import PdfMerger
 from PySide6.QtCore import Signal
 from PySide6.QtWidgets import (
-    QWidget, QVBoxLayout, QHBoxLayout, QLabel, QSpinBox, QComboBox,
-    QSizePolicy
+    QWidget, QVBoxLayout, QHBoxLayout, QLabel, QSpinBox, 
+    QComboBox, QSizePolicy
 )
 from core.utils import get_group_key, get_unique_file_path
 

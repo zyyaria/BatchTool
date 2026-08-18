@@ -8,10 +8,11 @@ import json
 from PySide6.QtCore import Signal
 from PySide6.QtGui import QAction, QIcon
 from PySide6.QtWidgets import (
-    QWidget, QVBoxLayout, QHBoxLayout, QLabel, QPlainTextEdit, QPushButton, 
-    QFileDialog, QMessageBox, QSizePolicy, QLineEdit
+    QWidget, QVBoxLayout, QHBoxLayout, QLabel, QPlainTextEdit, 
+    QPushButton, QFileDialog, QMessageBox, QSizePolicy, QLineEdit, 
+    QApplication
 )
-from core.utils import get_ffmpeg_path, save_app_config, resource_path
+from core.utils import get_ffmpeg_path, resource_path, select_ffmpeg_path
 
 
 class VideoChapterPanel(QWidget):
@@ -34,7 +35,7 @@ class VideoChapterPanel(QWidget):
         self.ffmpeg_action = QAction(self)
         self.ffmpeg_action.setIcon(QIcon(resource_path("assets/folder.png")))
         self.ffmpeg_action.setToolTip("选择 FFmpeg 可执行文件")
-        self.ffmpeg_action.triggered.connect(self.select_ffmpeg_path)
+        self.ffmpeg_action.triggered.connect(lambda: select_ffmpeg_path(self, self.ffmpeg_edit))
         self.ffmpeg_edit.addAction(self.ffmpeg_action, QLineEdit.TrailingPosition)
         row_ffmpeg.addWidget(QLabel("FFmpeg 路径:"))
         row_ffmpeg.addWidget(self.ffmpeg_edit, 1)
@@ -111,12 +112,16 @@ class VideoChapterPanel(QWidget):
         if not ffmpeg:
             QMessageBox.warning(self, "提示", "未找到 FFmpeg")
             return
+        ffprobe = os.path.join(os.path.dirname(ffmpeg), "ffprobe")
+        if not os.path.exists(ffprobe):
+            ffprobe = "ffprobe"
         parent.append_log("")
         parent.append_log("========== 章节检测 ==========")
         for i, item in enumerate(items, 1):
+            QApplication.processEvents()
             try:
                 cmd = [
-                    "ffprobe",
+                    ffprobe,
                     "-v", "error",
                     "-show_entries", "format:chapters",
                     "-of", "json",
@@ -174,6 +179,7 @@ class VideoChapterPanel(QWidget):
         cleared = []
         failed = []
         for item in items:
+            QApplication.processEvents()
             original_path = item.input_path
             ext = os.path.splitext(original_path)[1]
             temp_path = original_path + ".temp" + ext
@@ -230,6 +236,7 @@ class VideoChapterPanel(QWidget):
             parent.append_log(f"❌ 清除失败：{', '.join(failed)}")
         if not cleared and not failed:
             parent.append_log("所有文件均无章节，无需清除")
+        parent.refresh_feature_preview()
         parent.refresh_table()
 
     def _has_chapters(self, video_path: str) -> bool:
@@ -255,25 +262,7 @@ class VideoChapterPanel(QWidget):
             return len(chapters) > 0
         except:
             return True
-
-    def select_ffmpeg_path(self):
-        """手动指定 FFmpeg 路径"""
-        path, _ = QFileDialog.getOpenFileName(
-            self, "选择 FFmpeg 可执行文件", "",
-            "FFmpeg 可执行文件 (ffmpeg.exe);;所有文件 (*.*)"
-        )
-        if path:
-            try:
-                subprocess.run([path, "-version"], capture_output=True, text=True,
-                               encoding='utf-8', errors='ignore', check=True)
-                save_app_config("ffmpeg_path", path)
-                self.ffmpeg_path = path
-                self.ffmpeg_edit.setText(path)
-                self.ffmpeg_edit.setToolTip(path)
-                QMessageBox.information(self, "成功", "FFmpeg 路径已设置并保存。")
-            except Exception as e:
-                QMessageBox.warning(self, "错误", f"所选文件不是有效的 FFmpeg 可执行文件：{e}")
-
+        
 
 def build_panel() -> QWidget:
     """构建面板实例"""

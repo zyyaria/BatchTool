@@ -6,7 +6,10 @@ import sys
 import json
 from typing import List
 from PySide6.QtCore import QTimer
-from PySide6.QtWidgets import QColorDialog, QDialogButtonBox, QWidget, QGroupBox, QTabWidget, QStatusBar
+from PySide6.QtWidgets import (
+    QColorDialog, QDialogButtonBox, QGroupBox, QStatusBar, QTabWidget, 
+    QWidget
+)
 
 
 def resource_path(relative_path):
@@ -319,6 +322,29 @@ def set_ffmpeg_path(path: str) -> bool:
         return False
     
 
+def select_ffmpeg_path(parent_widget, line_edit):
+    """通用的 FFmpeg 路径选择函数"""
+    from PySide6.QtWidgets import QFileDialog, QMessageBox
+    import subprocess
+    path, _ = QFileDialog.getOpenFileName(
+        parent_widget, "选择 FFmpeg 可执行文件", "",
+        "FFmpeg 可执行文件 (ffmpeg.exe);;所有文件 (*.*)"
+    )
+    if path:
+        try:
+            subprocess.run([path, "-version"], capture_output=True, text=True,
+                           encoding='utf-8', errors='ignore', check=True)
+            save_app_config("ffmpeg_path", path)
+            line_edit.setText(path)
+            line_edit.setToolTip(path)
+            QMessageBox.information(parent_widget, "成功", "FFmpeg 路径已设置并保存。")
+            return True
+        except Exception as e:
+            QMessageBox.warning(parent_widget, "错误", f"所选文件不是有效的 FFmpeg 可执行文件：{e}")
+            return False
+    return False
+
+
 def get_unique_file_path(directory: str, base_name: str, ext: str) -> str:
     """获取唯一的文件路径"""
     out_path = os.path.join(directory, f"{base_name}{ext}")
@@ -434,4 +460,27 @@ def get_color_cn(parent=None, initial=None, title="选择颜色"):
     dlg.finished.connect(timer.stop)
     if dlg.exec() == QColorDialog.Accepted:
         return dlg.currentColor()
+    return None
+
+
+def get_ghostscript_path():
+    """获取 Ghostscript 可执行文件路径"""
+    saved_path = load_app_config("gs_path")
+    if saved_path and os.path.exists(saved_path):
+        return saved_path
+    import shutil
+    for name in ["gswin64c", "gswin32c", "gs"]:
+        path = shutil.which(name)
+        if path:
+            return path
+    common_paths = [
+        r"C:\Program Files\gs\gs*\bin\gswin64c.exe",
+        r"C:\Program Files (x86)\gs\gs*\bin\gswin32c.exe",
+        r"D:\Program Files\Ghostscript\bin\gswin64c.exe"
+    ]
+    import glob
+    for pattern in common_paths:
+        matches = glob.glob(pattern)
+        if matches:
+            return sorted(matches, reverse=True)[0]
     return None

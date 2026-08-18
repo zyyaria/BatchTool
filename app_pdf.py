@@ -3,10 +3,10 @@
 
 import os
 import sys
-from PySide6.QtGui import QIcon, QFont
+from PySide6.QtGui import QFont, QIcon
 from PySide6.QtWidgets import (
-    QApplication, QMessageBox, QDialog, QLabel, QTextEdit, QPushButton, 
-    QVBoxLayout, QHBoxLayout, QAbstractItemView
+    QAbstractItemView, QApplication, QDialog, QHBoxLayout, QLabel, 
+    QMessageBox, QPushButton, QTextEdit, QVBoxLayout
 )
 from core.base import BaseMainWindow
 from core.utils import resource_path

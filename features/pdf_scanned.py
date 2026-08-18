@@ -4,11 +4,11 @@
 import os
 import io
 import numpy as np
-from PIL import Image, ImageFilter, ImageEnhance
+from PIL import Image
 from PySide6.QtCore import Signal
 from PySide6.QtWidgets import (
-    QWidget, QVBoxLayout, QHBoxLayout, QLabel, QSpinBox, QComboBox,
-    QSizePolicy
+    QWidget, QVBoxLayout, QHBoxLayout, QLabel, QSpinBox, 
+    QComboBox, QSizePolicy
 )
 
 try:
@@ -35,25 +35,22 @@ class ScanPanel(QWidget):
         row_color.addWidget(self.color_combo, 1)
         layout.addLayout(row_color)
 
-        row_dpi = QHBoxLayout()
+        row_dpi_quality = QHBoxLayout()
         self.dpi_spin = QSpinBox()
         self.dpi_spin.setRange(72, 300)
-        self.dpi_spin.setValue(150) 
+        self.dpi_spin.setValue(150)
         self.dpi_spin.setSuffix(" ppi")
         self.dpi_spin.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
-        row_dpi.addWidget(QLabel("渲染 DPI:"))
-        row_dpi.addWidget(self.dpi_spin, 1)
-        layout.addLayout(row_dpi)
-
-        row_quality = QHBoxLayout()
         self.quality_spin = QSpinBox()
         self.quality_spin.setRange(60, 100)
         self.quality_spin.setValue(92)
         self.quality_spin.setSuffix(" %")
         self.quality_spin.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
-        row_quality.addWidget(QLabel("JPEG 输出质量:"))
-        row_quality.addWidget(self.quality_spin, 1)
-        layout.addLayout(row_quality)
+        row_dpi_quality.addWidget(QLabel("DPI:"))
+        row_dpi_quality.addWidget(self.dpi_spin, 1)
+        row_dpi_quality.addWidget(QLabel("质量:"))
+        row_dpi_quality.addWidget(self.quality_spin, 1)
+        layout.addLayout(row_dpi_quality)
 
         row_brightness = QHBoxLayout()
         self.brightness_spin = QSpinBox()

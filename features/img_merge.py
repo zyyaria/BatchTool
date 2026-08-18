@@ -5,8 +5,8 @@ import os
 from PIL import Image, ImageDraw, ImageFont
 from PySide6.QtCore import Signal
 from PySide6.QtWidgets import (
-    QWidget, QVBoxLayout, QHBoxLayout, QLabel, QSpinBox, QComboBox,
-    QPushButton, QSizePolicy, QCheckBox, QLineEdit
+    QWidget, QVBoxLayout, QHBoxLayout, QLabel, QSpinBox, 
+    QComboBox, QPushButton, QSizePolicy, QCheckBox, QLineEdit
 )
 from core.utils import get_group_key, get_unique_file_path
 

@@ -4,8 +4,8 @@
 import os
 from PySide6.QtCore import Signal
 from PySide6.QtWidgets import (
-    QWidget, QVBoxLayout, QHBoxLayout, QLabel, QComboBox, QSpinBox,
-    QCheckBox, QSizePolicy
+    QWidget, QVBoxLayout, QHBoxLayout, QLabel, QComboBox, 
+    QSpinBox, QCheckBox, QSizePolicy
 )
 from core.utils import ensure_image_mode
 
@@ -24,6 +24,15 @@ class ResizePanel(QWidget):
         super().__init__()
         layout = QVBoxLayout(self)
         layout.setSpacing(8)
+
+        row_resample = QHBoxLayout()
+        self.resample_combo = QComboBox()
+        self.resample_combo.addItems(["高质量 (LANCZOS)", "均衡 (BICUBIC)", "快速 (BILINEAR)"])
+        self.resample_combo.setCurrentIndex(0)
+        self.resample_combo.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
+        row_resample.addWidget(QLabel("重采样算法:"))
+        row_resample.addWidget(self.resample_combo, 1)
+        layout.addLayout(row_resample)
 
         row_format = QHBoxLayout()
         self.format_combo = QComboBox()
@@ -65,7 +74,7 @@ class ResizePanel(QWidget):
         layout.addWidget(self.csize_widget)
 
         row_dpi = QHBoxLayout()
-        self.check_dpi = QCheckBox("修改分辨率")
+        self.check_dpi = QCheckBox("指定 DPI")
         self.check_dpi.setChecked(False)
         self.check_dpi.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Fixed)
         self.dpi_spin = QSpinBox()
@@ -90,6 +99,7 @@ class ResizePanel(QWidget):
         self.check_dpi.stateChanged.connect(self._on_dpi_toggled)
         self.check_dpi.stateChanged.connect(self.changed)
         self.dpi_spin.valueChanged.connect(self.changed)
+        self.resample_combo.currentIndexChanged.connect(self.changed)
 
         self._on_size_mode_changed()
 
@@ -103,18 +113,22 @@ class ResizePanel(QWidget):
             self.height_spin.setEnabled(False)
             self.width_spin.setSpecialValueText("忽略")
             self.height_spin.setSpecialValueText("忽略")
+            self.width_spin.setToolTip("")
+            self.height_spin.setToolTip("")
         else:
             self.width_spin.setEnabled(True)
             self.height_spin.setEnabled(True)
             self.width_spin.setSpecialValueText("")
             self.height_spin.setSpecialValueText("")
-            if mode == 1:
+            if mode == 1: 
                 self.width_spin.setSuffix(" px")
                 self.height_spin.setSuffix(" px")
                 self.width_spin.setRange(1, 99999)
                 self.height_spin.setRange(1, 99999)
                 self.height_spin.setEnabled(True)
                 self.height_spin.setSpecialValueText("")
+                self.width_spin.setToolTip("输入目标宽度（像素）")
+                self.height_spin.setToolTip("输入目标高度（像素）")
             elif mode == 2:
                 self.width_spin.setSuffix(" %")
                 self.height_spin.setSuffix(" %")
@@ -122,7 +136,9 @@ class ResizePanel(QWidget):
                 self.height_spin.setRange(1, 200)
                 self.height_spin.setEnabled(True)
                 self.height_spin.setSpecialValueText("")
-            elif mode == 3:
+                self.width_spin.setToolTip("输入宽度百分比（1-200）")
+                self.height_spin.setToolTip("输入高度百分比（1-200）")
+            elif mode == 3: 
                 self.width_spin.setSuffix(" px")
                 self.height_spin.setSuffix("")
                 self.width_spin.setRange(1, 99999)
@@ -130,7 +146,9 @@ class ResizePanel(QWidget):
                 self.height_spin.setEnabled(False)
                 self.height_spin.setSpecialValueText("自动计算")
                 self.height_spin.setValue(0)
-            elif mode == 4:
+                self.width_spin.setToolTip("输入短边长度（像素），长边自动按比例计算")
+                self.height_spin.setToolTip("自动计算，无需输入")
+            elif mode == 4: 
                 self.width_spin.setSuffix(" px")
                 self.height_spin.setSuffix("")
                 self.width_spin.setRange(1, 99999)
@@ -138,6 +156,8 @@ class ResizePanel(QWidget):
                 self.height_spin.setEnabled(False)
                 self.height_spin.setSpecialValueText("自动计算")
                 self.height_spin.setValue(0)
+                self.width_spin.setToolTip("输入长边长度（像素），短边自动按比例计算")
+                self.height_spin.setToolTip("自动计算，无需输入")
         self.changed.emit()
 
     def _on_dpi_toggled(self):
@@ -169,6 +189,7 @@ def collect_settings(panel: ResizePanel) -> dict:
         "target_format": target_format,
         "dpi": panel.dpi_spin.value(),
         "modify_dpi": panel.check_dpi.isChecked(),
+        "resample": panel.resample_combo.currentIndex(),
     }
 
 
@@ -181,6 +202,9 @@ def prepare_preview(items, settings):
     fmt = settings.get("target_format")
     modify_dpi = settings.get("modify_dpi", False)
     dpi = settings.get("dpi", 72)
+    resample_idx = settings.get("resample", 0)
+    resample_names = ["LANCZOS", "BICUBIC", "BILINEAR"]
+    resample_text = f"，算法{resample_names[resample_idx]}"
     for it in items:
         if mode == "original":
             size_desc = "原尺寸（不调整）"
@@ -214,7 +238,7 @@ def prepare_preview(items, settings):
             dpi_desc = f"原DPI（{it._orig_dpi_cache}）"
         fmt_display = fmt.upper() if fmt else "原格式"
         it.preview_extra = {
-            "A": f"尺寸：{size_desc}，{dpi_desc}，格式{fmt_display}"
+            "A": f"尺寸：{size_desc}，{dpi_desc}，格式{fmt_display}{resample_text}"
         }
 
 
@@ -230,6 +254,13 @@ def run_task(file_item, settings):
     target_fmt = settings.get("target_format")
     modify_dpi = settings.get("modify_dpi", False)
     dpi = settings.get("dpi", 72)
+    resample_idx = settings.get("resample", 0)
+    resample_map = {
+        0: Image.Resampling.LANCZOS,
+        1: Image.Resampling.BICUBIC,
+        2: Image.Resampling.BILINEAR,
+    }
+    resample = resample_map.get(resample_idx, Image.Resampling.LANCZOS)
     try:
         im = Image.open(src)
     except Exception as e:
@@ -252,7 +283,7 @@ def run_task(file_item, settings):
                 new_w = int(new_h * ratio)
             else:
                 new_h = int(new_w / ratio)
-        im_resized = im.resize((new_w, new_h), Image.Resampling.LANCZOS)
+        im_resized = im.resize((new_w, new_h), resample)
     elif mode == "percent":
         if w_val is None or h_val is None:
             raise RuntimeError("请输入有效的百分比")
@@ -264,7 +295,7 @@ def run_task(file_item, settings):
         else:
             new_w = int(orig_w * pct_w)
             new_h = int(orig_h * pct_h)
-        im_resized = im.resize((new_w, new_h), Image.Resampling.LANCZOS)
+        im_resized = im.resize((new_w, new_h), resample)
     elif mode == "short_edge":
         if w_val is None:
             raise RuntimeError("请输入短边长度")
@@ -275,7 +306,7 @@ def run_task(file_item, settings):
         else:
             new_h = target_short
             new_w = int(target_short * orig_w / orig_h)
-        im_resized = im.resize((new_w, new_h), Image.Resampling.LANCZOS)
+        im_resized = im.resize((new_w, new_h), resample)
     elif mode == "long_edge":
         if w_val is None:
             raise RuntimeError("请输入长边长度")
@@ -286,14 +317,14 @@ def run_task(file_item, settings):
         else:
             new_h = target_long
             new_w = int(target_long * orig_w / orig_h)
-        im_resized = im.resize((new_w, new_h), Image.Resampling.LANCZOS)
+        im_resized = im.resize((new_w, new_h), resample)
     else:
         im_resized = im.copy()
         new_w, new_h = orig_w, orig_h
     new_w = max(1, int(new_w))
     new_h = max(1, int(new_h))
     if mode != "original":
-        im_resized = im.resize((new_w, new_h), Image.Resampling.LANCZOS)
+        im_resized = im.resize((new_w, new_h), resample)
     if modify_dpi:
         final_dpi = (dpi, dpi)
     else:

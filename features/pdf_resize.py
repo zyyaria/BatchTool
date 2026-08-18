@@ -3,11 +3,17 @@
 
 import os
 import fitz
+import platform
+import subprocess
 from PySide6.QtCore import Signal
+from PySide6.QtGui import QAction, QIcon
 from PySide6.QtWidgets import (
-    QWidget, QVBoxLayout, QHBoxLayout, QLabel, QComboBox, QCheckBox,
-    QPushButton, QSizePolicy, QDoubleSpinBox
+    QWidget, QVBoxLayout, QHBoxLayout, QLabel, QComboBox, 
+    QCheckBox, QPushButton, QSizePolicy, QDoubleSpinBox, QLineEdit, 
+    QFileDialog, QMessageBox
 )
+from core.utils import resource_path, get_ghostscript_path, save_app_config
+
 
 PAGE_SIZES = {
     "A0": (2384, 3370),
@@ -38,8 +44,13 @@ class ResizePanel(QWidget):
         self.size_combo.addItems(["A0", "A1", "A2", "A3", "A4", "A5", "A6", "Letter", "Legal", "自定义"])
         self.size_combo.setCurrentText("A4")
         self.size_combo.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
+        self.virtual_print_check = QCheckBox("虚拟打印")
+        self.virtual_print_check.setChecked(False)
+        self.virtual_print_check.setToolTip("勾选后通过虚拟打印重新生成PDF，可修复签名和旋转问题，但文字将不可选中")
+        self.virtual_print_check.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Fixed)
         row_size.addWidget(QLabel("目标尺寸:"))
         row_size.addWidget(self.size_combo, 1)
+        row_size.addWidget(self.virtual_print_check)
         layout.addLayout(row_size)
 
         self.csize_widget = QWidget()
@@ -70,13 +81,33 @@ class ResizePanel(QWidget):
         self.position_combo.addItems(["居中", "左上", "右上", "左下", "右下"])
         self.position_combo.setCurrentText("居中")
         self.position_combo.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
-        self.orientation_check = QCheckBox("智能保持方向")
+        self.orientation_check = QCheckBox("保持方向")
         self.orientation_check.setChecked(True)
+        self.orientation_check.setToolTip("自动识别页面横竖方向，适配目标尺寸时避免内容旋转或变形")
         self.orientation_check.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Fixed)
         row_position.addWidget(QLabel("内容位置:"))
         row_position.addWidget(self.position_combo, 1)
         row_position.addWidget(self.orientation_check)
         layout.addLayout(row_position)
+
+        self.gs_widget = QWidget()
+        row_gs = QHBoxLayout(self.gs_widget)
+        row_gs.setContentsMargins(0, 0, 0, 0)
+        self.gs_edit = QLineEdit()
+        saved_gs = get_ghostscript_path()
+        self.gs_edit.setText(saved_gs if saved_gs else "")
+        self.gs_edit.setReadOnly(True)
+        self.gs_edit.setPlaceholderText("未找到 Ghostscript，点击右侧图标选择")
+        self.gs_edit.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
+        gs_action = QAction(self)
+        gs_action.setIcon(QIcon(resource_path("assets/folder.png")))
+        gs_action.setToolTip("选择 Ghostscript 可执行文件")
+        gs_action.triggered.connect(self.select_gs_path)
+        self.gs_edit.addAction(gs_action, QLineEdit.TrailingPosition)
+        row_gs.addWidget(QLabel("Ghostscript 路径:"))
+        row_gs.addWidget(self.gs_edit, 1)
+        self.gs_widget.setVisible(False)
+        layout.addWidget(self.gs_widget)
 
         self.detect_btn = QPushButton("检测页面尺寸")
         self.detect_btn.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
@@ -91,6 +122,8 @@ class ResizePanel(QWidget):
         self.width_spin.textChanged.connect(self.changed)
         self.height_spin.textChanged.connect(self.changed)
         self.detect_btn.clicked.connect(self.detect_requested.emit)
+        self.virtual_print_check.stateChanged.connect(self.changed)
+        self.virtual_print_check.toggled.connect(self._on_virtual_print_toggled)
 
         self._toggle_custom_size()
 
@@ -100,11 +133,36 @@ class ResizePanel(QWidget):
         self.csize_widget.setVisible(is_custom)
         self.changed.emit()
 
+    def _on_virtual_print_toggled(self, checked):
+        """"虚拟打印选项切换"""
+        self.gs_widget.setVisible(checked)
+        self.changed.emit()
+
+    def select_gs_path(self):
+        """选择 Ghostscript 路径"""
+        if platform.system() == "Windows":
+            file_filter = "Ghostscript 可执行文件 (gswin64c.exe gswin32c.exe);;所有文件 (*.*)"
+        else:
+            file_filter = "Ghostscript 可执行文件 (gs);;所有文件 (*.*)"
+        path, _ = QFileDialog.getOpenFileName(self, "选择 Ghostscript 可执行文件", "", file_filter)
+        if path:
+            try:
+                subprocess.run([path, "--version"], capture_output=True, text=True,
+                               encoding='utf-8', errors='ignore', check=True)
+                save_app_config("gs_path", path)
+                self.gs_edit.setText(path)
+                self.gs_edit.setToolTip(path)
+                self.gs_action.setToolTip(f"Ghostscript 路径: {path}")
+                QMessageBox.information(self, "成功", "Ghostscript 路径已设置并保存。")
+            except Exception as e:
+                QMessageBox.warning(self, "错误", f"所选文件不是有效的 Ghostscript 可执行文件：{e}")
+
     def set_target_size(self, size_name: str):
         """"设置目标尺寸"""
         index = self.size_combo.findText(size_name)
         if index >= 0:
             self.size_combo.setCurrentIndex(index)
+
 
 
 def build_panel() -> QWidget:
@@ -131,6 +189,7 @@ def collect_settings(panel: ResizePanel) -> dict:
         "page_size": page_size,
         "position": panel.position_combo.currentText(),
         "orientation": panel.orientation_check.isChecked(),
+        "virtual_print": panel.virtual_print_check.isChecked()
     }
 
 
@@ -144,8 +203,9 @@ def prepare_preview(items, settings):
         size_name = f"{w_cm:.1f}×{h_cm:.1f}cm"
     pos = settings.get("position", "居中")
     smart = "开启" if settings.get("orientation", True) else "关闭"
+    vp = "，虚拟打印" if settings.get("virtual_print", False) else ""
     for it in items:
-        it.preview_extra = {"A": f"目标尺寸：{size_name}，位置{pos}，智能方向{smart}"}
+        it.preview_extra = {"A": f"目标尺寸：{size_name}，位置{pos}，智能方向{smart}{vp}"}
 
 
 def match_standard_size(w_pt: float, h_pt: float, tolerance: float = 2.0):
@@ -352,10 +412,41 @@ def run_task(file_item, settings: dict):
     out_dir = file_item.output_dir or os.path.dirname(src)
     os.makedirs(out_dir, exist_ok=True)
     out_path = os.path.join(out_dir, file_item.output_name)
+    temp_path = None
+    if settings.get("virtual_print", False):
+        import tempfile
+        import subprocess
+        import sys
+        from core.utils import get_ghostscript_path
+        gs = get_ghostscript_path()
+        if not gs:
+            raise RuntimeError("未找到 Ghostscript，请先安装或设置路径")
+        fd, temp_path = tempfile.mkstemp(suffix=".pdf")
+        os.close(fd)
+        cmd = [
+            gs,
+            "-sDEVICE=pdfwrite",
+            "-dCompatibilityLevel=1.4",
+            "-dNOPAUSE",
+            "-dQUIET",
+            "-dBATCH",
+            "-sOutputFile=" + temp_path,
+            src
+        ]
+        subprocess.run(cmd, check=True, capture_output=True,
+                       creationflags=subprocess.CREATE_NO_WINDOW if sys.platform == "win32" else 0)
+        src = temp_path
     page_size = settings.get("page_size")
     if page_size is None:
         raise ValueError("未指定页面尺寸")
     position = settings.get("position", "居中")
     smart = settings.get("orientation", True)
-    _resize_pdf(src, out_path, page_size, position, smart)
+    try:
+        _resize_pdf(src, out_path, page_size, position, smart)
+    finally:
+        if temp_path and os.path.exists(temp_path):
+            try:
+                os.remove(temp_path)
+            except:
+                pass
     file_item.status = "完成"

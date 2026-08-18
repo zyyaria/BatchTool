@@ -2,13 +2,13 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
 
 import os
-import math
-from core.utils import ensure_image_mode
-from PySide6.QtCore import Signal, Qt
+from PySide6.QtCore import Signal
 from PySide6.QtWidgets import (
-    QWidget, QVBoxLayout, QHBoxLayout, QLabel, QComboBox, QSpinBox,
-    QDoubleSpinBox, QPushButton, QButtonGroup, QRadioButton, QSizePolicy
+    QWidget, QVBoxLayout, QHBoxLayout, QLabel, QComboBox, 
+    QSpinBox, QDoubleSpinBox, QPushButton, QButtonGroup, QRadioButton, 
+    QSizePolicy
 )
+from core.utils import ensure_image_mode
 
 try:
     from PIL import Image

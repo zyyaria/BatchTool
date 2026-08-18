@@ -7,10 +7,10 @@ import subprocess
 from PySide6.QtCore import Signal, QTime, Qt
 from PySide6.QtGui import QAction, QIcon
 from PySide6.QtWidgets import (
-    QWidget, QVBoxLayout, QHBoxLayout, QLabel, QSpinBox, QLineEdit,
-    QFileDialog, QMessageBox, QCheckBox, QSizePolicy, QTimeEdit
+    QWidget, QVBoxLayout, QHBoxLayout, QLabel, QSpinBox, 
+    QLineEdit, QCheckBox, QSizePolicy, QTimeEdit
 )
-from core.utils import get_ffmpeg_path, save_app_config, resource_path
+from core.utils import get_ffmpeg_path, resource_path, select_ffmpeg_path
 
 
 class VideoToGifPanel(QWidget):
@@ -32,7 +32,7 @@ class VideoToGifPanel(QWidget):
         self.ffmpeg_action = QAction(self)
         self.ffmpeg_action.setIcon(QIcon(resource_path("assets/folder.png")))
         self.ffmpeg_action.setToolTip("选择 FFmpeg 可执行文件")
-        self.ffmpeg_action.triggered.connect(self.select_ffmpeg_path)
+        self.ffmpeg_action.triggered.connect(lambda: select_ffmpeg_path(self, self.ffmpeg_edit))
         self.ffmpeg_edit.addAction(self.ffmpeg_action, QLineEdit.TrailingPosition)
         row_ffmpeg.addWidget(QLabel("FFmpeg 路径:"))
         row_ffmpeg.addWidget(self.ffmpeg_edit, 1)
@@ -84,7 +84,7 @@ class VideoToGifPanel(QWidget):
         row_size = QHBoxLayout()        
         self.width_spin = QSpinBox()
         self.width_spin.setRange(16, 1920)
-        self.width_spin.setValue(320)
+        self.width_spin.setValue(480)
         self.width_spin.setSuffix(" px")
         self.width_spin.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
         x_label = QLabel(" × ")
@@ -93,7 +93,7 @@ class VideoToGifPanel(QWidget):
         x_label.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Fixed)        
         self.height_spin = QSpinBox()
         self.height_spin.setRange(16, 1080)
-        self.height_spin.setValue(240)
+        self.height_spin.setValue(360)
         self.height_spin.setSuffix(" px")
         self.height_spin.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
         row_size.addWidget(QLabel("目标尺寸:"))
@@ -111,24 +111,6 @@ class VideoToGifPanel(QWidget):
         self.height_spin.valueChanged.connect(self.changed)
         self.color_spin.valueChanged.connect(self.changed)
         self.aspect_ratio_check.stateChanged.connect(self.changed)
-
-    def select_ffmpeg_path(self):
-        """选择 FFmpeg 路径"""
-        path, _ = QFileDialog.getOpenFileName(
-            self, "选择 FFmpeg 可执行文件", "",
-            "FFmpeg 可执行文件 (ffmpeg.exe);;所有文件 (*.*)"
-        )
-        if path:
-            try:
-                subprocess.run([path, "-version"], capture_output=True, text=True,
-                               encoding='utf-8', errors='ignore', check=True)
-                save_app_config("ffmpeg_path", path)
-                self.ffmpeg_path = path
-                self.ffmpeg_edit.setText(path)
-                self.ffmpeg_edit.setToolTip(path)
-                QMessageBox.information(self, "成功", "FFmpeg 路径已设置并保存。")
-            except Exception as e:
-                QMessageBox.warning(self, "错误", f"所选文件不是有效的 FFmpeg 可执行文件：{e}")
 
 
 def build_panel() -> QWidget:

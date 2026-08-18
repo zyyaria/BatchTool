@@ -11,7 +11,10 @@ from .base import (
     BatchThread,
     UIMixin,
     BaseMainWindow,
-    NamingRulesDialog,
+)
+
+from .dialogs import (
+  NamingRulesDialog,
 )
 
 from .utils import (
@@ -26,6 +29,7 @@ from .utils import (
     NamingRule,
     get_ffmpeg_path,
     set_ffmpeg_path,
+    select_ffmpeg_path,
     get_color_cn,
 )
 

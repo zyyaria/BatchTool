@@ -7,8 +7,8 @@ import math
 from PIL import Image, ImageSequence
 from PySide6.QtCore import Signal
 from PySide6.QtWidgets import (
-    QWidget, QVBoxLayout, QHBoxLayout, QLabel, QSpinBox, QComboBox,
-    QCheckBox, QSizePolicy, QButtonGroup, QPushButton, QColorDialog,
+    QWidget, QVBoxLayout, QHBoxLayout, QLabel, QSpinBox, 
+    QComboBox, QCheckBox, QSizePolicy, QButtonGroup, QPushButton,
     QRadioButton
 )
 from core.utils import get_group_key, get_unique_file_path

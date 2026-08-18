@@ -4,8 +4,8 @@
 import os
 from PySide6.QtCore import Signal
 from PySide6.QtWidgets import (
-    QWidget, QVBoxLayout, QHBoxLayout, QLabel, QComboBox, QSpinBox,
-    QCheckBox, QPushButton, QSizePolicy
+    QWidget, QVBoxLayout, QHBoxLayout, QLabel, QComboBox, 
+    QSpinBox, QCheckBox, QPushButton, QSizePolicy
 )
 from core.utils import ensure_image_mode
 
@@ -33,10 +33,10 @@ class CompressPanel(QWidget):
         self.medium_btn.clicked.connect(lambda: self._apply_preset(75, 90, False, 128, 1, True))
         self.medium_btn.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
         self.strong_btn = QPushButton("强力")
-        self.strong_btn.clicked.connect(lambda: self._apply_preset(60, 80, False, 64, 2, True))
+        self.strong_btn.clicked.connect(lambda: self._apply_preset(65, 80, False, 64, 2, True))
         self.strong_btn.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
-        self.extreme_btn = QPushButton("极限")
-        self.extreme_btn.clicked.connect(lambda: self._apply_preset(40, 60, False, 32, 3, True))
+        self.extreme_btn = QPushButton("极强")
+        self.extreme_btn.clicked.connect(lambda: self._apply_preset(55, 70, False, 32, 3, True))
         self.extreme_btn.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
         row_preset.addWidget(QLabel("预设:"))
         row_preset.addWidget(self.light_btn, 1)
@@ -79,6 +79,7 @@ class CompressPanel(QWidget):
         self.color_spin.setRange(2, 256)
         self.color_spin.setValue(256)
         self.color_spin.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
+        self.color_spin.setToolTip("仅对 GIF 格式生效，控制调色板颜色数量")
         row_color.addWidget(QLabel("最大颜色数:"))
         row_color.addWidget(self.color_spin, 1)
         layout.addLayout(row_color)
@@ -88,9 +89,11 @@ class CompressPanel(QWidget):
         self.frame_spin.setRange(1, 10)
         self.frame_spin.setValue(1)
         self.frame_spin.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
+        self.frame_spin.setToolTip("仅对动画 GIF 生效，每隔 N 帧抽取一帧")
         self.animation_check = QCheckBox("保留动画")
         self.animation_check.setChecked(True)      
-        self.animation_check.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Fixed)  
+        self.animation_check.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Fixed)
+        self.animation_check.setToolTip("取消勾选则只保留第一帧（静态图）")  
         row_frame.addWidget(QLabel("抽帧间隔:"))
         row_frame.addWidget(self.frame_spin, 1)
         row_frame.addWidget(self.animation_check)        
